@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✨ Калькулятор Магии — Ксантея</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1f2937;
+    --bg4: #374151;
+    --border: #30363d;
+    --purple-light: #d8b4fe;
+    --purple: #a855f7;
+    --purple-mid: #7e22ce;
+    --purple-dark: #581c87;
+    --purple-deeper: #3b0764;
+    --green: #15803d;
+    --red: #b91c1c;
+    --blue: #2563eb;
+    --gray: #9ca3af;
+    --text: #f1f5f9;
+    --danger: #f87171;
+    --info: #60a5fa;
+    --star-glow: 0 0 6px #a855f7aa, 0 0 20px #7e22ce55;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Crimson Pro', Georgia, serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, #1a0533 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, #0a1a33 0%, transparent 60%);
+  }
+
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 16px 16px 60px;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-top: 20px;
+  }
+  .header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 26px;
+    color: var(--purple-light);
+    text-shadow: var(--star-glow);
+    letter-spacing: 2px;
+  }
+  .header p {
+    color: var(--gray);
+    font-size: 14px;
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* STEP INDICATOR */
+  .steps-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .step-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 13px;
+    transition: all .3s;
+  }
+  .step-active  { background: var(--purple-mid); transform: scale(1.15); box-shadow: var(--star-glow); color: white; }
+  .step-done    { background: var(--green); color: white; }
+  .step-inactive{ background: var(--bg4); color: var(--gray); }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: var(--purple-light);
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+  }
+
+  /* GRID */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  /* CARD */
+  .card {
+    background: var(--bg3);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s, transform .15s, box-shadow .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover:not(.card-disabled) {
+    border-color: var(--purple);
+    background: #2a1f3d;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px #7e22ce33;
+  }
+  .card.card-selected {
+    border-color: var(--purple);
+    background: var(--purple-dark);
+    box-shadow: 0 0 0 1px var(--purple), 0 4px 20px #a855f744;
+  }
+  .card.card-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #111827;
+  }
+  .card-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+  }
+  .card-sub {
+    color: var(--gray);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .card-warn {
+    color: var(--danger);
+    font-size: 11px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  /* LIBRARY PANEL */
+  .library-panel {
+    background: var(--bg2);
+    border: 1px solid #4c1d95;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+  .library-panel-title {
+    font-family: 'Cinzel', serif;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .lib-btns { display: flex; gap: 8px; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Crimson Pro', serif;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all .2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: white;
+  }
+  .btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-purple { background: var(--purple-mid); }
+  .btn-green  { background: var(--green); }
+  .btn-red    { background: var(--red); }
+  .btn-blue   { background: var(--blue); }
+  .btn-gray   { background: var(--bg4); }
+  .btn-disabled { background: var(--bg4); opacity: 0.5; cursor: not-allowed; }
+  .btn-disabled:hover { filter: none; transform: none; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 6px; }
+
+  /* NAV ROW */
+  .nav-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .nav-row .btn { flex: 1; justify-content: center; }
+
+  /* ACCENT BLOCK */
+  .accent-block {
+    background: var(--bg2);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+  .accent-block-title {
+    font-family: 'Cinzel', serif;
+    color: white;
+    font-weight: 700;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+  .accent-options { display: flex; flex-direction: column; gap: 6px; }
+  .accent-btn {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--bg4);
+    background: var(--bg);
+    cursor: pointer;
+    text-align: left;
+    transition: all .2s;
+  }
+  .accent-btn:hover:not(.accent-selected) {
+    border-color: #6b21a8;
+    background: #1a0f2e;
+  }
+  .accent-btn.accent-selected {
+    border-color: var(--purple);
+    background: var(--purple-dark);
+  }
+  .accent-val {
+    color: var(--purple-light);
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .accent-desc {
+    color: var(--gray);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  /* RESULT CARD */
+  .result-card {
+    background: var(--purple-deeper);
+    border: 1px solid var(--purple);
+    border-radius: 12px;
+    padding: 18px;
+    margin: 12px 0;
+    box-shadow: 0 0 30px #7e22ce22;
+  }
+  .result-title {
+    font-family: 'Cinzel', serif;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .cost-display {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.3;
+    min-height: 34px;
+  }
+  .cost-p-pos { color: var(--purple-light); }
+  .cost-p-neg { color: var(--danger); }
+  .cost-e-pos { color: var(--info); }
+  .cost-e-neg { color: #fca5a5; }
+  .cost-free  { color: var(--gray); }
+  .mult-text { color: var(--gray); font-size: 13px; margin-top: 4px; }
+
+  /* INFO CARD */
+  .info-card {
+    background: var(--bg3);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .info-title {
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 10px;
+  }
+  .info-row {
+    color: #d1d5db;
+    margin-bottom: 4px;
+    font-size: 15px;
+  }
+  .effect-text {
+    color: var(--purple-light);
+    font-size: 16px;
+    font-style: italic;
+  }
+
+  /* SAVE CARD */
+  .save-card {
+    background: var(--bg3);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .save-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .save-row input {
+    flex: 1;
+    background: var(--bg4);
+    color: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .save-row input:focus { border-color: var(--purple); }
+  .save-row input::placeholder { color: var(--gray); }
+
+  /* SAVED SECTION */
+  .saved-section {
+    background: var(--bg2);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 24px;
+    border: 1px solid var(--border);
+  }
+  .empty-text { color: #6b7280; font-style: italic; }
+  .saved-card {
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    transition: border-color .2s;
+  }
+  .saved-card:hover { border-color: #6b21a8; }
+  .saved-name { color: var(--purple-light); font-family: 'Cinzel', serif; font-weight: 600; font-size: 14px; }
+  .saved-details { color: var(--gray); font-size: 12px; margin-top: 2px; }
+  .saved-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-content {
+    background: var(--bg3);
+    width: 100%;
+    max-width: 500px;
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px solid var(--bg4);
+    animation: modalIn .25s ease;
+  }
+  @keyframes modalIn { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-title { font-family: 'Cinzel', serif; color: white; font-size: 20px; margin-bottom: 8px; }
+  .modal-sub { color: var(--gray); margin-bottom: 12px; font-size: 14px; }
+  .modal-textarea {
+    width: 100%;
+    background: var(--bg);
+    color: white;
+    border: 1px solid var(--bg4);
+    border-radius: 8px;
+    padding: 10px;
+    height: 140px;
+    font-family: monospace;
+    font-size: 12px;
+    resize: vertical;
+    margin-bottom: 18px;
+    outline: none;
+  }
+  .modal-textarea:focus { border-color: var(--purple); }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btns .btn { flex: 1; justify-content: center; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1a1a2e;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    border: 1px solid var(--purple);
+    font-size: 14px;
+    z-index: 200;
+    transition: transform .3s ease;
+    box-shadow: var(--star-glow);
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .hidden { display: none !important; }
+
+  /* Magic rune separator */
+  .rune-sep { text-align: center; color: #6b21a8; margin: 8px 0; font-size: 18px; letter-spacing: 8px; }
+
+  @media (max-width: 420px) {
+    .grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>✨ Калькулятор Магии</h1>
+    <p>Система Ксантеи</p>
+  </div>
+
+  <div class="steps-indicator" id="stepsIndicator"></div>
+
+  <!-- STEP 1: Core -->
+  <div id="step1">
+    <div class="library-panel">
+      <div class="library-panel-title">📦 Управление библиотекой</div>
+      <div class="lib-btns">
+        <button class="btn btn-blue" id="btnExport">📤 Экспорт</button>
+        <button class="btn btn-green" onclick="openImportModal()">📥 Импорт</button>
+      </div>
+    </div>
+    <div class="section-title">Шаг 1: Выбор Ядра</div>
+    <div class="grid" id="coresGrid"></div>
+  </div>
+
+  <!-- STEP 2: Modification -->
+  <div id="step2" class="hidden">
+    <div class="section-title">Шаг 2: Модификация</div>
+    <div class="grid" id="modsGrid"></div>
+    <div class="nav-row">
+      <button class="btn btn-gray" onclick="setStep(1)">← Назад</button>
+      <button class="btn btn-purple" onclick="setStep(3)">Далее →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Expression -->
+  <div id="step3" class="hidden">
+    <div class="section-title">Шаг 3: Выбор Выражения</div>
+    <div class="grid" id="expressionsGrid"></div>
+    <div class="nav-row">
+      <button class="btn btn-gray" onclick="setStep(2)">← Назад</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Accents & Result -->
+  <div id="step4" class="hidden">
+    <div class="section-title">Шаг 4: Настройка Акцентов</div>
+    <div id="accentsContainer"></div>
+
+    <div class="result-card">
+      <div class="result-title">💫 Итоговая стоимость</div>
+      <div class="cost-display" id="costDisplay"></div>
+      <div class="mult-text" id="multText"></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-title">📜 Параметры</div>
+      <div id="paramsInfo"></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-title">⚡ Эффект</div>
+      <div class="effect-text" id="effectDisplay"></div>
+    </div>
+
+    <div class="save-card">
+      <div class="info-title">💾 Сохранить</div>
+      <div class="save-row">
+        <input type="text" id="spellNameInput" placeholder="Название заклинания">
+        <button class="btn btn-green" onclick="saveSpell()">OK</button>
+      </div>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn btn-gray" onclick="setStep(3)">← Назад</button>
+      <button class="btn btn-red" onclick="resetAll()">Сброс</button>
+    </div>
+  </div>
+
+  <!-- Saved Spells -->
+  <div class="saved-section">
+    <div class="section-title">📚 Сохранённые</div>
+    <div id="savedSpellsList"></div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal-content">
+    <div class="modal-title">Импорт JSON</div>
+    <div class="modal-sub">Вставьте JSON код ниже:</div>
+    <textarea class="modal-textarea" id="importTextarea" placeholder='[{"id": "...", "name": "Fireball"...}]'></textarea>
+    <div class="modal-btns">
+      <button class="btn btn-red" onclick="closeImportModal()">Отмена</button>
+      <button class="btn btn-green" onclick="performImport()">Импорт</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== DATA =====
+const CORES = [
+  { id: 'water',         name: 'Вода',            cost: { p: 0.5,  e: 0  } },
+  { id: 'fire',          name: 'Огонь',            cost: { p: -0.5, e: 1  } },
+  { id: 'ice',           name: 'Лёд',              cost: { p: 0.5,  e: -1 } },
+  { id: 'air',           name: 'Воздух',           cost: { p: -0.5, e: 0  } },
+  { id: 'ambrosia',      name: 'Поток амброза',    cost: { p: 0,    e: 0  } },
+  { id: 'illusion',      name: 'Иллюзия',          cost: { p: -1,   e: 0  } },
+  { id: 'darkness',      name: 'Тьма',             cost: { p: -1,   e: -2 } },
+  { id: 'electricity',   name: 'Электричество',    cost: { p: 1,    e: 2  } },
+  { id: 'earth',         name: 'Земля/камень',     cost: { p: 1,    e: 0  } },
+  { id: 'crystals',      name: 'Кристаллы',        cost: { p: 2,    e: 0  } },
+  { id: 'transmutation', name: 'Трансмутация',     cost: { p: 3,    e: 0  } },
+  { id: 'radiation',     name: 'Излучение',        cost: { p: 0,    e: 3  } },
+  { id: 'gravity',       name: 'Гравитация',       cost: { p: 0,    e: -3 } },
+  { id: 'summon',        name: 'Призыв',           cost: { p: -2,   e: 0  } },
+  { id: 'teleport',      name: 'Телепорт',         cost: { p: -3,   e: 0  } },
+];
+
+const MODIFICATIONS = [
+  { id: 'none',      name: 'Без модификации',           cost: { p: 0,    e: 0    } },
+  { id: 'healing',   name: 'Лечение',                   cost: { p: 0.5,  e: 0.5  } },
+  { id: 'poison',    name: 'Яд',                        cost: { p: 0,    e: -0.5 } },
+  { id: 'acid',      name: 'Кислота',                   cost: { p: -0.5, e: -0.5 } },
+  { id: 'vegetation',name: 'Растительность',            cost: { p: 0.5,  e: 0    } },
+  { id: 'lava',      name: 'Лава',                      cost: { p: 0,    e: 0.5  } },
+  { id: 'laser',     name: 'Лазер',                     cost: { p: 1,    e: 0    } },
+  { id: 'sound',     name: 'Звук',                      cost: { p: 0,    e: 0.5  } },
+  { id: 'metall',    name: 'Металл',                    cost: { p: 0.5,  e: 0    } },
+  { id: 'plasm',     name: 'Плазма',                    cost: { p: 0.5,  e: 0.5  } },
+  { id: 'smoke',     name: 'Дым',                       cost: { p: 0.5,  e: 0    } },
+  { id: 'psycho',    name: 'Психологическое воздействие', cost: { p: 0,  e: -1   } },
+];
+
+const MOD_TO_CORE = {
+  healing:'water', poison:'water', acid:'water', vegetation:'water',
+  lava:'earth', laser:'electricity', sound:'air', metall:'earth',
+  plasm:'fire', smoke:'air', psycho:'illusion',
+};
+
+const EXPRESSIONS = [
+  { id: 'touch',       name: 'Касание',            slots: 2 },
+  { id: 'release',     name: 'Высвобождение',       slots: 3 },
+  { id: 'filling',     name: 'Наполнение',          slots: 3 },
+  { id: 'projectile4', name: 'Снаряд (4 ячейки)',   slots: 4 },
+  { id: 'projectile5', name: 'Снаряд (5 ячеек)',    slots: 5 },
+  { id: 'area',        name: 'Область',             slots: 6 },
+];
+
+const ACCENTS_BY_EXPRESSION = {
+  touch: [
+    { id:'power', name:'Сила', type:'multiplier', levels:[
+      { level:1, value:'x1', multiplier:1, description:'Базовые эффекты' },
+      { level:2, value:'x2', multiplier:2, description:'Усиленные эффекты' },
+      { level:3, value:'x3', multiplier:3, description:'Максимальные эффекты' },
+    ]},
+    { id:'duration', name:'Время действия', type:'multiplier', levels:[
+      { level:1, value:'0', multiplier:0, description:'Мгновенное применение' },
+      { level:2, value:'x1', multiplier:1, description:'3 хода применения' },
+    ]},
+  ],
+  release: [
+    { id:'power', name:'Сила', type:'multiplier', levels:[
+      { level:1, value:'x1', multiplier:1, description:'Базовые эффекты' },
+      { level:2, value:'x2', multiplier:2, description:'Усиленные эффекты' },
+      { level:3, value:'x3', multiplier:3, description:'Максимальные эффекты' },
+    ]},
+    { id:'range', name:'Дальность', type:'cost', levels:[
+      { level:1, value:'0',    cost:{p:0,e:0}, description:'3 клетки' },
+      { level:2, value:'+1 п', cost:{p:1,e:0}, description:'4 клетки' },
+      { level:3, value:'+2 п', cost:{p:2,e:0}, description:'5 клеток' },
+    ]},
+    { id:'angle', name:'Угол (схема распыления)', type:'addition', levels:[
+      { level:1, value:'0',    addition:0,  description:'Равномерно по конусу (сила -1)' },
+      { level:2, value:'-1 э', addition:-1, description:'Центр без потери сил (луч + область)' },
+      { level:3, value:'+1 п', addition:1,  description:'Край без потери сил' },
+    ]},
+  ],
+  filling: [
+    { id:'power', name:'Сила', type:'multiplier', levels:[
+      { level:1, value:'x1', multiplier:1, description:'Базовые эффекты' },
+      { level:2, value:'x2', multiplier:2, description:'Усиленные эффекты' },
+      { level:3, value:'x3', multiplier:3, description:'Максимальные эффекты' },
+    ]},
+    { id:'castSpeed', name:'Скорость наложения', type:'cost', levels:[
+      { level:1, value:'0',    cost:{p:0,e:0}, description:'6 ОД на выполнение' },
+      { level:2, value:'+1 э', cost:{p:0,e:1}, description:'4 ОД на выполнение' },
+      { level:3, value:'+2 э', cost:{p:0,e:2}, description:'2 ОД на выполнение' },
+    ]},
+    { id:'volume', name:'Объём', type:'multiplier', levels:[
+      { level:1, value:'x0', multiplier:0, description:'Небольшой предмет/часть тела' },
+      { level:2, value:'x1', multiplier:1, description:'Большой предмет/половина тела' },
+      { level:3, value:'x2', multiplier:2, description:'Крупный предмет/всё тело' },
+    ]},
+  ],
+  projectile4: [
+    { id:'power', name:'Сила', type:'multiplier', levels:[
+      { level:1, value:'x1', multiplier:1, description:'Базовые эффекты' },
+      { level:2, value:'x2', multiplier:2, description:'Усиленные эффекты' },
+      { level:3, value:'x3', multiplier:3, description:'Максимальные эффекты' },
+    ]},
+    { id:'speed', name:'Скорость', type:'addition', levels:[
+      { level:1, value:'-0.5 п', addition:-0.5, description:'6 клеток в ход' },
+      { level:2, value:'-1 п',   addition:-1,   description:'12 клеток в ход' },
+      { level:3, value:'-2 п',   addition:-2,   description:'24 клетки в ход' },
+    ]},
+    { id:'range', name:'Дальность', type:'addition', levels:[
+      { level:1, value:'0',    addition:0, description:'6 клеток' },
+      { level:2, value:'+1 п', addition:1, description:'12 клеток' },
+      { level:3, value:'+2 п', addition:2, description:'24 клетки' },
+    ]},
+    { id:'size', name:'Размер', type:'multiplier', levels:[
+      { level:1, value:'x0', multiplier:0, description:'1 клетка' },
+      { level:2, value:'x1', multiplier:1, description:'3x3 (по краям -1 сила)' },
+      { level:3, value:'x2', multiplier:2, description:'5x5 (по краям -1 сила)' },
+    ]},
+  ],
+  projectile5: [
+    { id:'power', name:'Сила', type:'multiplier', levels:[
+      { level:1, value:'x1', multiplier:1, description:'Базовые эффекты' },
+      { level:2, value:'x2', multiplier:2, description:'Усиленные эффекты' },
+      { level:3, value:'x3', multiplier:3, description:'Максимальные эффекты' },
+    ]},
+    { id:'speed', name:'Скорость', type:'addition', levels:[
+      { level:1, value:'-0.5 п', addition:-0.5, description:'6 клеток в ход' },
+      { level:2, value:'-1 п',   addition:-1,   description:'12 клеток в ход' },
+      { level:3, value:'-2 п',   addition:-2,   description:'24 клетки в ход' },
+    ]},
+    { id:'range', name:'Дальность', type:'addition', levels:[
+      { level:1, value:'0',    addition:0, description:'6 клеток' },
+      { level:2, value:'+1 п', addition:1, description:'12 клеток' },
+      { level:3, value:'+2 п', addition:2, description:'24 клетки' },
+    ]},
+    { id:'size', name:'Размер', type:'multiplier', levels:[
+      { level:1, value:'x0', multiplier:0, description:'1 клетка' },
+      { level:2, value:'x1', multiplier:1, description:'3x3 (по краям -1 сила)' },
+      { level:3, value:'x2', multiplier:2, description:'5x5 (по краям -1 сила)' },
+    ]},
+    { id:'count', name:'Количество снарядов', type:'multiplier', levels:[
+      { level:1, value:'x0', multiplier:0, description:'1 снаряд' },
+      { level:2, value:'x1', multiplier:1, description:'2 снаряда' },
+      { level:3, value:'x2', multiplier:2, description:'3 снаряда' },
+      { level:4, value:'x3', multiplier:3, description:'4 снаряда' },
+      { level:5, value:'x4', multiplier:4, description:'5 снарядов' },
+    ]},
+  ],
+  area: [
+    { id:'power', name:'Сила', type:'multiplier', levels:[
+      { level:1, value:'x1', multiplier:1, description:'Базовые эффекты' },
+      { level:2, value:'x2', multiplier:2, description:'Усиленные эффекты' },
+      { level:3, value:'x3', multiplier:3, description:'Максимальные эффекты' },
+    ]},
+    { id:'size', name:'Размер', type:'multiplier', levels:[
+      { level:1, value:'x0', multiplier:0, description:'3x3' },
+      { level:2, value:'x1', multiplier:1, description:'5x5' },
+      { level:3, value:'x2', multiplier:2, description:'7x7' },
+    ]},
+    { id:'range', name:'Дальность', type:'cost', levels:[
+      { level:1, value:'0',    cost:{p:0,e:0}, description:'На себя' },
+      { level:2, value:'+1 п', cost:{p:1,e:0}, description:'3 клетки' },
+      { level:3, value:'+2 п', cost:{p:2,e:0}, description:'6 клеток' },
+    ]},
+    { id:'duration', name:'Время действия', type:'multiplier', levels:[
+      { level:1, value:'x0', multiplier:0, description:'Мгновенное применение' },
+      { level:2, value:'x1', multiplier:1, description:'3 хода применения (сила -1)' },
+    ]},
+    { id:'castSpeed', name:'Скорость', type:'addition', levels:[
+      { level:1, value:'0',    addition:0, description:'9 ОД на выполнене' },
+      { level:2, value:'+1 э', addition:1, description:'6 ОД на выполнение' },
+      { level:3, value:'+2 э', addition:2, description:'3 ОД на выполнение' },
+    ]},
+    { id:'distribution', name:'Распределение', type:'addition', levels:[
+      { level:1, value:'0',    addition:0,  description:'Равномерно (-1 сила)' },
+      { level:2, value:'-1 э', addition:-1,  description:'Центр без потери силы' },
+      { level:3, value:'1 п', addition:1, description:'Края без потери силы' },
+      
+    ]},
+  ],
+};
+
+const CORE_EFFECTS = {
+  fire:          [{level:0,effect:'Небольшой нагрев (без урона)'},{level:1,effect:'Сильный жар (2 урона)'},{level:2,effect:'Сильный жар (4 урона)'},{level:3,effect:'Сильный жар (6 урона)'}],
+  ice:           [{level:0,effect:'Небольшое охлаждение (без урона)'},{level:1,effect:'Сильный холод (2 урона)'},{level:2,effect:'Сильный холод (4 урона)'},{level:3,effect:'Сильный холод (6 урона)'}],
+  electricity:   [{level:0,effect:'2 урона'},{level:1,effect:'5 урона'},{level:2,effect:'10 урона, помеха на действие 2 хода'},{level:3,effect:'15 урона, оглушение на 1 ход'}],
+  darkness:      [{level:0,effect:'Поглощение звука'},{level:1,effect:'Ослепление на 3 хода'},{level:2,effect:'100% оглушение на 2 хода'},{level:3,effect:'10 урона, высасывание 3 каждого аспекта'}],
+  water:         [{level:0,effect:'Водяной пар/поток воздуха'},{level:1,effect:'Отталкивание на 1 клетку'},{level:2,effect:'Отталкивание на 3 клетки'},{level:3,effect:'Отталкивание на 5 клеток'}],
+  air:           [{level:0,effect:'Поток воздуха'},{level:1,effect:'Ускорение на 2 клетки/ход'},{level:2,effect:'Ускорение на 4 клетки/ход'},{level:3,effect:'Ускорение на 5 клеток/ход'}],
+  earth:         [{level:0,effect:'Песок'},{level:1,effect:'Хрупкий камень (2 урона/2 хп)'},{level:2,effect:'Крепкий камень (4 урона/8 хп)'},{level:3,effect:'Твёрдый камень (6 урона/20 хп)'}],
+  illusion:      [{level:0,effect:'Рассеивающаяся иллюзия'},{level:1,effect:'Стабильная иллюзия (1 хп)'},{level:2,effect:'Устойчивая иллюзия'},{level:3,effect:'Осязаемая иллюзия'}],
+  ambrosia:      [{level:0,effect:'Скорость передачи x0.5'},{level:1,effect:'Скорость передачи x1'},{level:2,effect:'Скорость передачи x2'},{level:3,effect:'Скорость передачи x3'}],
+  crystals:      [{level:0,effect:'Мелкие кристаллические осколки'},{level:1,effect:'Формирование кристаллов'},{level:2,effect:'Крупные кристаллы'},{level:3,effect:'Массивные кристаллы'}],
+  transmutation: [{level:0,effect:'Неудача'},{level:1,effect:'Базовая трансмутация'},{level:2,effect:'Средняя трансмутация'},{level:3,effect:'Полная трансмутация'}],
+  radiation:     [{level:0,effect:'Слабое излучение'},{level:1,effect:'Базовое излучение'},{level:2,effect:'Среднее излучение'},{level:3,effect:'Сильное излучение'}],
+  gravity:       [{level:0,effect:'Слабое воздействие'},{level:1,effect:'Базовое изменение гравитации'},{level:2,effect:'Среднее изменение гравитации'},{level:3,effect:'Сильное изменение гравитации'}],
+  summon:        [{level:0,effect:'Неудача'},{level:1,effect:'Слабый призыв'},{level:2,effect:'Средний призыв'},{level:3,effect:'Сильный призыв'}],
+  teleport:      [{level:0,effect:'Неудача'},{level:1,effect:'Короткий телепорт'},{level:2,effect:'Средний телепорт'},{level:3,effect:'Дальний телепорт'}],
+};
+
+// ===== STATE =====
+let state = {
+  step: 1,
+  selectedCore: null,
+  selectedMod: MODIFICATIONS[0],
+  selectedExpression: null,
+  selectedAccents: {},
+  savedSpells: [],
+};
+
+const genId = () => Math.random().toString(36).substr(2, 9);
+
+// ===== STORAGE =====
+function loadSpells() {
+  try {
+    const s = localStorage.getItem('xantheia_spells');
+    if (s) state.savedSpells = JSON.parse(s);
+  } catch(e) {}
+}
+function storeSpells() {
+  try { localStorage.setItem('xantheia_spells', JSON.stringify(state.savedSpells)); } catch(e) {}
+}
+
+// ===== TOAST =====
+let toastTimer;
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = isError ? '#b91c1c' : 'var(--purple)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===== STEP MANAGEMENT =====
+function setStep(n) {
+  state.step = n;
+  [1,2,3,4].forEach(i => {
+    document.getElementById('step'+i).classList.toggle('hidden', i !== n);
+  });
+  renderStepsIndicator();
+  if (n === 4 && state.selectedExpression) renderStep4();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function renderStepsIndicator() {
+  const el = document.getElementById('stepsIndicator');
+  el.innerHTML = [1,2,3,4].map(s => {
+    const cls = s === state.step ? 'step-active' : (s < state.step ? 'step-done' : 'step-inactive');
+    const label = s < state.step ? '✓' : s;
+    return `<div class="step-circle ${cls}">${label}</div>`;
+  }).join('');
+}
+
+// ===== COST FORMAT =====
+function fmtCost(c) {
+  const p = c.p, e = c.e;
+  let parts = [];
+  if (p !== 0) parts.push(`${p > 0 ? '+' : ''}${p}п`);
+  if (e !== 0) parts.push(`${e > 0 ? '+' : ''}${e}э`);
+  return parts.length ? parts.join(' ') : '0';
+}
+
+// ===== RENDER STEP 1 (Cores) =====
+function renderStep1() {
+  const grid = document.getElementById('coresGrid');
+  grid.innerHTML = CORES.map(core => {
+    const sel = state.selectedCore?.id === core.id ? 'card-selected' : '';
+    return `<div class="card ${sel}" onclick="selectCore('${core.id}')">
+      <div class="card-title">${core.name}</div>
+      <div class="card-sub">${fmtCost(core.cost)}</div>
+    </div>`;
+  }).join('');
+
+  const btnEx = document.getElementById('btnExport');
+  btnEx.className = 'btn btn-blue' + (state.savedSpells.length === 0 ? ' btn-disabled' : '');
+  btnEx.onclick = state.savedSpells.length > 0 ? exportSpells : null;
+}
+
+function selectCore(id) {
+  state.selectedCore = CORES.find(c => c.id === id);
+  state.selectedMod = MODIFICATIONS[0];
+  renderStep1();
+  setStep(2);
+  renderStep2();
+}
+
+// ===== RENDER STEP 2 (Mods) =====
+function renderStep2() {
+  const grid = document.getElementById('modsGrid');
+  grid.innerHTML = MODIFICATIONS.map(mod => {
+    const expCore = MOD_TO_CORE[mod.id];
+    const allowed = mod.id === 'none' || (state.selectedCore && expCore === state.selectedCore.id);
+    const sel = state.selectedMod?.id === mod.id && allowed ? 'card-selected' : '';
+    const dis = !allowed ? 'card-disabled' : '';
+    const warn = !allowed && expCore
+      ? `<div class="card-warn">Только для ${CORES.find(c=>c.id===expCore)?.name}</div>` : '';
+    return `<div class="card ${sel} ${dis}" onclick="${allowed ? `selectMod('${mod.id}')` : ''}">
+      <div class="card-title">${mod.name}</div>
+      <div class="card-sub">${fmtCost(mod.cost)}</div>
+      ${warn}
+    </div>`;
+  }).join('');
+}
+
+function selectMod(id) {
+  state.selectedMod = MODIFICATIONS.find(m => m.id === id);
+  renderStep2();
+}
+
+// ===== RENDER STEP 3 (Expressions) =====
+function renderStep3() {
+  const grid = document.getElementById('expressionsGrid');
+  grid.innerHTML = EXPRESSIONS.map(expr => {
+    const sel = state.selectedExpression?.id === expr.id ? 'card-selected' : '';
+    return `<div class="card ${sel}" onclick="selectExpression('${expr.id}')">
+      <div class="card-title">${expr.name}</div>
+      <div class="card-sub">${expr.slots} ячеек</div>
+    </div>`;
+  }).join('');
+}
+
+function selectExpression(id) {
+  state.selectedExpression = EXPRESSIONS.find(e => e.id === id);
+  state.selectedAccents = {};
+  renderStep3();
+  setStep(4);
+}
+
+// ===== CALCULATE =====
+function calculateCost() {
+  if (!state.selectedCore || !state.selectedExpression || !state.selectedMod)
+    return { posP:0, negP:0, posE:0, negE:0, multiplier:1 };
+
+  const baseParts = [state.selectedCore.cost, { p:0, e:0 }, state.selectedMod.cost];
+  let basePosP=0, baseNegP=0, basePosE=0, baseNegE=0;
+  baseParts.forEach(part => {
+    if (part.p > 0) basePosP += part.p; else baseNegP += part.p;
+    if (part.e > 0) basePosE += part.e; else baseNegE += part.e;
+  });
+
+  let totalMultiplier=0, addPosP=0, addNegP=0, addPosE=0, addNegE=0, costPosP=0, costNegP=0, costPosE=0, costNegE=0;
+
+  const accents = ACCENTS_BY_EXPRESSION[state.selectedExpression.id] || [];
+  accents.forEach(accent => {
+    const idx = state.selectedAccents[accent.id];
+    const levelIndex = idx !== undefined ? idx : 0;
+    const level = accent.levels[levelIndex];
+    if (!level) return;
+    if (accent.type === 'multiplier') {
+      totalMultiplier += level.multiplier || 0;
+    } else if (accent.type === 'cost') {
+      if (level.cost?.p > 0) costPosP += level.cost.p; else costNegP += level.cost?.p || 0;
+      if (level.cost?.e > 0) costPosE += level.cost.e; else costNegE += level.cost?.e || 0;
+    } else if (accent.type === 'addition') {
+      const isEnergy = level.value.includes('э');
+      if (isEnergy) {
+        if (level.addition > 0) addPosE += level.addition; else addNegE += level.addition;
+      } else {
+        if (level.addition > 0) addPosP += level.addition; else addNegP += level.addition;
+      }
+    }
+  });
+
+  const finalMult = totalMultiplier || 1;
+  return {
+    posP: (basePosP + costPosP) * finalMult + addPosP,
+    negP: (baseNegP + costNegP) * finalMult + addNegP,
+    posE: (basePosE + costPosE) * finalMult + addPosE,
+    negE: (baseNegE + costNegE) * finalMult + addNegE,
+    multiplier: finalMult
+  };
+}
+
+function getPowerLevel() {
+  const accents = ACCENTS_BY_EXPRESSION[state.selectedExpression?.id] || [];
+  const powerAccent = accents.find(a => a.id === 'power');
+  if (!powerAccent) return 1;
+  const idx = state.selectedAccents['power'] ?? 0;
+  return powerAccent.levels[idx]?.multiplier || 1;
+}
+
+function getEffect() {
+  if (!state.selectedCore) return '';
+  const pl = getPowerLevel();
+  const effects = CORE_EFFECTS[state.selectedCore.id];
+  if (!effects) return 'Эффект определяется ядром';
+  return (effects.find(e => e.level === pl) || effects[effects.length-1])?.effect || 'Эффект не определён';
+}
+
+// ===== RENDER STEP 4 =====
+function renderStep4() {
+  const accents = ACCENTS_BY_EXPRESSION[state.selectedExpression?.id] || [];
+  const container = document.getElementById('accentsContainer');
+
+  container.innerHTML = accents.map(accent => {
+    const selectedIdx = state.selectedAccents[accent.id] ?? 0;
+    const opts = accent.levels.map((level, idx) => {
+      const sel = selectedIdx === idx ? 'accent-selected' : '';
+      return `<button class="accent-btn ${sel}" onclick="selectAccent('${accent.id}', ${idx})">
+        <div class="accent-val">${level.value}</div>
+        <div class="accent-desc">${level.description}</div>
+      </button>`;
+    }).join('');
+    return `<div class="accent-block">
+      <div class="accent-block-title">${accent.name}</div>
+      <div class="accent-options">${opts}</div>
+    </div>`;
+  }).join('');
+
+  updateCostDisplay();
+}
+
+function selectAccent(accentId, idx) {
+  state.selectedAccents[accentId] = idx;
+  renderStep4();
+}
+
+function updateCostDisplay() {
+  const cost = calculateCost();
+  const cd = document.getElementById('costDisplay');
+
+  let html = '';
+  if (cost.posP > 0) html += `<span class="cost-p-pos">${cost.posP.toFixed(1)}п </span>`;
+  if (cost.negP < 0) html += `<span class="cost-p-neg">${cost.negP.toFixed(1)}п </span>`;
+  if (cost.posE > 0 || cost.negE < 0) html += `<span style="color:var(--gray)"> / </span>`;
+  if (cost.posE > 0) html += `<span class="cost-e-pos">${cost.posE.toFixed(1)}э </span>`;
+  if (cost.negE < 0) html += `<span class="cost-e-neg">${cost.negE.toFixed(1)}э </span>`;
+  if (!html) html = `<span class="cost-free">Бесплатно</span>`;
+  cd.innerHTML = html;
+
+  document.getElementById('multText').textContent = `Множитель: x${cost.multiplier}`;
+
+  // Params
+  const params = document.getElementById('paramsInfo');
+  let phtml = `<div class="info-row">Ядро: ${state.selectedCore?.name}</div>`;
+  if (state.selectedMod?.id !== 'none') phtml += `<div class="info-row">Мод: ${state.selectedMod?.name}</div>`;
+  phtml += `<div class="info-row">Выражение: ${state.selectedExpression?.name}</div>`;
+  phtml += `<div class="info-row">Уровень силы: ${getPowerLevel()}</div>`;
+  params.innerHTML = phtml;
+
+  document.getElementById('effectDisplay').textContent = getEffect();
+}
+
+// ===== SAVE / LOAD / DELETE =====
+function saveSpell() {
+  const name = document.getElementById('spellNameInput').value.trim();
+  if (!name) { showToast('Введите название заклинания', true); return; }
+  if (!state.selectedCore || !state.selectedExpression) { showToast('Выберите ядро и выражение', true); return; }
+  const spell = {
+    id: genId(), name,
+    core: state.selectedCore, mod: state.selectedMod,
+    expression: state.selectedExpression, accents: {...state.selectedAccents},
+    cost: calculateCost(), powerLevel: getPowerLevel(), effect: getEffect(),
+  };
+  state.savedSpells.push(spell);
+  storeSpells();
+  document.getElementById('spellNameInput').value = '';
+  showToast('Заклинание сохранено ✓');
+  renderSaved();
+}
+
+function loadSpell(id) {
+  const spell = state.savedSpells.find(s => s.id === id);
+  if (!spell) return;
+  state.selectedCore = spell.core;
+  state.selectedMod = spell.mod || MODIFICATIONS[0];
+  state.selectedExpression = spell.expression;
+  state.selectedAccents = {...(spell.accents || {})};
+  renderStep1();
+  renderStep2();
+  renderStep3();
+  setStep(4);
+}
+
+function deleteSpell(id) {
+  state.savedSpells = state.savedSpells.filter(s => s.id !== id);
+  storeSpells();
+  renderSaved();
+  showToast('Заклинание удалено');
+  renderStep1();
+}
+
+function renderSaved() {
+  const el = document.getElementById('savedSpellsList');
+  if (state.savedSpells.length === 0) {
+    el.innerHTML = '<div class="empty-text">Нет сохранённых заклинаний</div>';
+    return;
+  }
+  el.innerHTML = state.savedSpells.map(spell => {
+    const c = spell.cost || {};
+    let costStr = '';
+    if (c.posP > 0) costStr += `+${c.posP.toFixed(1)}п `;
+    if (c.negP < 0) costStr += `${c.negP.toFixed(1)}п `;
+    if (c.posE > 0) costStr += `+${c.posE.toFixed(1)}э `;
+    if (c.negE < 0) costStr += `${c.negE.toFixed(1)}э `;
+    if (!costStr) costStr = 'бесплатно';
+    return `<div class="saved-card">
+      <div style="flex:1;min-width:0">
+        <div class="saved-name">${spell.name}</div>
+        <div class="saved-details">${spell.core?.name} + ${spell.expression?.name} · ${costStr.trim()}</div>
+      </div>
+      <div class="saved-actions">
+        <button class="btn btn-blue btn-sm" onclick="loadSpell('${spell.id}')">Load</button>
+        <button class="btn btn-red btn-sm" onclick="deleteSpell('${spell.id}')">Del</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== IMPORT / EXPORT =====
+function exportSpells() {
+  const data = JSON.stringify(state.savedSpells, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'xantheia_spells.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function openImportModal() {
+  document.getElementById('importModal').classList.add('open');
+}
+function closeImportModal() {
+  document.getElementById('importModal').classList.remove('open');
+  document.getElementById('importTextarea').value = '';
+}
+function performImport() {
+  try {
+    const data = JSON.parse(document.getElementById('importTextarea').value);
+    if (!Array.isArray(data)) { showToast('Неверный формат данных', true); return; }
+    const newSpells = data.map(s => ({...s, id: genId()}));
+    state.savedSpells = [...state.savedSpells, ...newSpells];
+    storeSpells();
+    closeImportModal();
+    showToast(`Импортировано ${newSpells.length} заклинаний! ✓`);
+    renderSaved();
+    renderStep1();
+  } catch(e) {
+    showToast('Не удалось прочитать JSON', true);
+  }
+}
+
+// ===== RESET =====
+function resetAll() {
+  state.step = 1;
+  state.selectedCore = null;
+  state.selectedMod = MODIFICATIONS[0];
+  state.selectedExpression = null;
+  state.selectedAccents = {};
+  renderStep1();
+  renderStep2();
+  renderStep3();
+  setStep(1);
+}
+
+// ===== INIT =====
+loadSpells();
+renderStep1();
+renderStep2();
+renderStep3();
+renderStepsIndicator();
+renderSaved();
+setStep(1);
+</script>
+</body>
+</html>

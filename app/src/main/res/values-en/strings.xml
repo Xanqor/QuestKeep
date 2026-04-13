@@ -1,0 +1,108 @@
+<resources>
+    <string name="app_name">QuestKeep</string>
+
+    <!-- Auth -->
+    <string name="login">Log In</string>
+    <string name="register">Register</string>
+    <string name="login_subtitle">Enter the adventure</string>
+    <string name="register_subtitle">Create your account</string>
+    <string name="create_account">Create Account</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="nickname">Nickname</string>
+    <string name="nickname_hint">3–20 characters</string>
+    <string name="password_hint">Min 8 chars, 1 letter, 1 digit</string>
+    <string name="show">Show</string>
+    <string name="hide">Hide</string>
+    <string name="no_account_register">Don\'t have an account? Register</string>
+    <string name="have_account_login">Already have an account? Log in</string>
+
+    <!-- Bottom tabs -->
+    <string name="tab_character">Character</string>
+    <string name="tab_chat">Chat</string>
+    <string name="tab_group">Group</string>
+    <string name="tab_menu">Menu</string>
+
+    <!-- Dice Roller -->
+    <string name="dice_roller">Dice Roller</string>
+    <string name="dice_expression_hint">Expression (e.g. 2d6+3)</string>
+    <string name="dice_expression_example">Supported: d4, d6, d8, d10, d12, d20, d100</string>
+    <string name="roll_public">Roll Public</string>
+    <string name="roll_private">Roll Private</string>
+
+    <!-- Character Sheet -->
+    <string name="main_stats">Main Stats</string>
+    <string name="stat_wellbeing">Wellbeing</string>
+    <string name="stat_movement">Movement</string>
+    <string name="stat_combat">Combat</string>
+    <string name="stat_thinking">Thinking</string>
+    <string name="stat_attention">Attention</string>
+    <string name="stat_communication">Comm.</string>
+    <string name="magic_resources">Magic Resources</string>
+    <string name="inspiration">Inspiration</string>
+    <string name="dmg">DMG</string>
+    <string name="dodge">Dodge</string>
+    <string name="initiative">Init</string>
+    <string name="hp_change">Change HP</string>
+    <string name="amount">Amount</string>
+    <string name="damage">Damage</string>
+    <string name="heal">Heal</string>
+    <string name="no_campaign_selected">No campaign selected.\nGo to Group tab to join or create one.</string>
+    <string name="no_character">No character found for this campaign.</string>
+    <string name="create_character">Create Character</string>
+    <string name="character_name">Character Name</string>
+    <string name="character_class">Class</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Chat -->
+    <string name="message_hint">Type a message…</string>
+    <string name="send">Send</string>
+
+    <!-- Campaigns -->
+    <string name="campaigns">Campaigns</string>
+    <string name="no_campaigns">No campaigns yet.\nCreate or join one!</string>
+    <string name="create_campaign">Create Campaign</string>
+    <string name="join_campaign">Join Campaign</string>
+    <string name="join_short">Join</string>
+    <string name="join">Join</string>
+    <string name="campaign_name">Campaign Name</string>
+    <string name="campaign_description">Description</string>
+    <string name="game_system">Game System</string>
+    <string name="max_players">Max Players</string>
+    <string name="invite_code">Invite Code</string>
+    <string name="players_count">%1$d / %2$d players</string>
+    <string name="gm_role">GM</string>
+    <string name="player_role">Player</string>
+    <string name="campaign_role_hint_gm">You are the Game Master of this campaign</string>
+    <string name="campaign_role_hint_player">You are a player in this campaign</string>
+    <string name="create_campaign_hint">Create a new campaign and become its Game Master</string>
+    <string name="join_campaign_hint">Join an existing campaign using an invite code</string>
+
+    <!-- GM Character Editor -->
+    <string name="gm_no_characters">No characters yet — players haven\'t created their sheets</string>
+    <string name="gm_select_character">Select a character</string>
+    <string name="gm_edit_character">Edit Character</string>
+    <string name="gm_edit_title">Edit Character (GM)</string>
+    <string name="gm_role_hint">As Game Master, you run the world, not a character</string>
+    <string name="edit_all_fields">All Parameters</string>
+    <string name="stat_hp_current">Current HP</string>
+    <string name="stat_hp_max">Max HP</string>
+    <string name="stat_armor">Armor</string>
+    <string name="stat_damage_label">Damage</string>
+    <string name="stat_dodge_label">Dodge</string>
+    <string name="stat_initiative_label">Initiative</string>
+    <string name="stat_level">Level</string>
+    <string name="save">Save</string>
+
+    <!-- Menu -->
+    <string name="menu">Menu</string>
+    <string name="account">Account</string>
+    <string name="settings">Settings</string>
+    <string name="change_nickname">Change Nickname</string>
+    <string name="change_avatar">Change Avatar</string>
+    <string name="notifications">Notifications</string>
+    <string name="logout">Log Out</string>
+    <string name="logout_confirm">Are you sure you want to log out?</string>
+</resources>

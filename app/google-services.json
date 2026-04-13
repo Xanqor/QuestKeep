@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "36273882941",
+    "project_id": "questkeep-4400c",
+    "storage_bucket": "questkeep-4400c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:36273882941:android:a4462bf95c5ed718436754",
+        "android_client_info": {
+          "package_name": "com.questkeep"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "36273882941-8bajttlaroumtfv6lfjoftaq8sp64ad7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFISkE2ZMGTTES83mKwAIoS53qlA7ZAlE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "36273882941-8bajttlaroumtfv6lfjoftaq8sp64ad7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

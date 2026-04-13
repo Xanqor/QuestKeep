@@ -1,0 +1,193 @@
+<resources>
+    <string name="app_name">QuestKeep</string>
+
+    <!-- Auth -->
+    <string name="login">Войти</string>
+    <string name="register">Регистрация</string>
+    <string name="login_subtitle">Начни приключение</string>
+    <string name="register_subtitle">Создай аккаунт</string>
+    <string name="create_account">Создать аккаунт</string>
+    <string name="email">Email</string>
+    <string name="password">Пароль</string>
+    <string name="confirm_password">Подтвердите пароль</string>
+    <string name="nickname">Никнейм</string>
+    <string name="nickname_hint">3–20 символов</string>
+    <string name="password_hint">Мин. 8 символов, 1 буква, 1 цифра</string>
+    <string name="show">Показать</string>
+    <string name="hide">Скрыть</string>
+    <string name="no_account_register">Нет аккаунта? Зарегистрируйтесь</string>
+    <string name="have_account_login">Уже есть аккаунт? Войдите</string>
+
+    <!-- Bottom tabs -->
+    <string name="tab_character">Персонаж</string>
+    <string name="tab_chat">Чат</string>
+    <string name="tab_group">Группа</string>
+    <string name="tab_menu">Меню</string>
+
+    <!-- Dice Roller -->
+    <string name="dice_roller">Бросок кубиков</string>
+    <string name="dice_expression_hint">Выражение (например 2d6+3)</string>
+    <string name="dice_expression_example">Доступны: d4, d6, d8, d10, d12, d20, d100</string>
+    <string name="roll_public">Бросить публично</string>
+    <string name="roll_private">Бросить тайно</string>
+
+    <!-- Character Sheet -->
+    <string name="main_stats">Основные характеристики</string>
+    <string name="stat_wellbeing">Самочувствие</string>
+    <string name="stat_movement">Движение</string>
+    <string name="stat_combat">Сражение</string>
+    <string name="stat_thinking">Мышление</string>
+    <string name="stat_attention">Внимание</string>
+    <string name="stat_communication">Общение</string>
+    <string name="magic_resources">Магические ресурсы</string>
+    <string name="inspiration">Вдохновение</string>
+    <string name="dmg">Урон</string>
+    <string name="dodge">Уклон</string>
+    <string name="initiative">Инит.</string>
+    <string name="hp_change">Изменить ХП</string>
+    <string name="amount">Количество</string>
+    <string name="damage">Урон</string>
+    <string name="heal">Лечение</string>
+    <string name="no_campaign_selected">Кампания не выбрана.\nПерейдите во вкладку «Группа», чтобы создать или вступить в кампанию.</string>
+    <string name="no_character">Персонаж для этой кампании не найден.</string>
+    <string name="create_character">Создать персонажа</string>
+    <string name="character_name">Имя персонажа</string>
+    <string name="character_class">Класс</string>
+    <string name="create">Создать</string>
+    <string name="cancel">Отмена</string>
+
+    <!-- Chat -->
+    <string name="message_hint">Введите сообщение…</string>
+    <string name="send">Отправить</string>
+
+    <!-- Campaigns -->
+    <string name="campaigns">Кампании</string>
+    <string name="no_campaigns">Кампаний пока нет.\nСоздайте или вступите в одну!</string>
+    <string name="create_campaign">Создать кампанию</string>
+    <string name="join_campaign">Вступить в кампанию</string>
+    <string name="join_short">Войти</string>
+    <string name="join">Вступить</string>
+    <string name="campaign_name">Название кампании</string>
+    <string name="campaign_description">Описание</string>
+    <string name="game_system">Игровая система</string>
+    <string name="max_players">Макс. игроков</string>
+    <string name="invite_code">Код приглашения</string>
+    <string name="players_count">%1$d / %2$d игроков</string>
+    <string name="gm_role">ГМ</string>
+    <string name="player_role">Игрок</string>
+    <string name="campaign_role_hint_gm">Вы — Мастер этой кампании</string>
+    <string name="campaign_role_hint_player">Вы — игрок в этой кампании</string>
+    <string name="create_campaign_hint">Создайте новую кампанию и станьте её Мастером</string>
+    <string name="join_campaign_hint">Вступите в существующую кампанию по коду приглашения</string>
+
+    <!-- Campaigns — edit/delete -->
+    <string name="edit_campaign">Редактировать кампанию</string>
+    <string name="delete_campaign">Удалить кампанию</string>
+    <string name="delete_campaign_confirm">Удалить кампанию? Все данные будут потеряны для всех участников.</string>
+    <string name="leave_campaign">Покинуть кампанию</string>
+    <string name="leave_campaign_confirm">Покинуть эту кампанию?</string>
+    <string name="campaign_options">Настройки кампании</string>
+
+    <!-- Armor bar -->
+    <string name="armor_change">Изменить броню</string>
+    <string name="armor_repair">Починить</string>
+    <string name="armor_damage_verb">Повредить</string>
+
+    <!-- Magic resources -->
+    <string name="resource_max_label">Макс</string>
+
+    <!-- GM Character Editor -->
+    <string name="gm_no_characters">Персонажей ещё нет — игроки не создали своих листов</string>
+    <string name="gm_select_character">Выберите персонажа</string>
+    <string name="gm_edit_character">Редактировать персонажа</string>
+    <string name="gm_edit_title">Редактирование персонажа (ГМ)</string>
+    <string name="gm_role_hint">Как Мастер, вы управляете миром, а не персонажем</string>
+    <string name="edit_all_fields">Все параметры</string>
+    <string name="stat_hp_current">Текущие ХП</string>
+    <string name="stat_hp_max">Макс. ХП</string>
+    <string name="stat_armor">Броня</string>
+    <string name="stat_damage_label">Урон</string>
+    <string name="stat_dodge_label">Уклон</string>
+    <string name="stat_initiative_label">Инициатива</string>
+    <string name="stat_level">Уровень</string>
+    <string name="save">Сохранить</string>
+
+    <!-- Menu -->
+    <string name="menu">Меню</string>
+    <string name="account">Аккаунт</string>
+    <string name="settings">Настройки</string>
+    <string name="change_nickname">Изменить никнейм</string>
+    <string name="change_avatar">Изменить аватар</string>
+    <string name="notifications">Уведомления</string>
+    <string name="logout">Выйти</string>
+    <string name="logout_confirm">Вы уверены, что хотите выйти?</string>
+
+    <!-- Profile -->
+    <string name="profile">Профиль</string>
+    <string name="edit_profile">Редактировать профиль</string>
+    <string name="choose_avatar">Выберите аватар</string>
+    <string name="save_profile">Сохранить профиль</string>
+    <string name="profile_saved">Профиль сохранён</string>
+
+    <!-- GM Notes -->
+    <string name="gm_notes">Заметки ГМ</string>
+    <string name="new_note">Новая заметка</string>
+    <string name="note_title">Заголовок</string>
+    <string name="note_content">Содержание</string>
+    <string name="note_type">Тип заметки</string>
+    <string name="reveal_to_players">Показать игрокам</string>
+    <string name="hidden_from_players">Скрыто от игроков</string>
+    <string name="add_child_note">Добавить дочернюю заметку</string>
+    <string name="note_type_world">Мир</string>
+    <string name="note_type_city">Город</string>
+    <string name="note_type_npc">НПС</string>
+    <string name="note_type_plot">Сюжет</string>
+    <string name="note_type_other">Прочее</string>
+
+    <!-- Bestiary -->
+    <string name="bestiary">Бестиарий</string>
+    <string name="gm_create_npc">Создать НПС</string>
+    <string name="new_npc">Новый противник</string>
+    <string name="npc_name">Имя / Название</string>
+    <string name="npc_description">Описание</string>
+    <string name="npc_tags">Теги (через запятую)</string>
+    <string name="delete_npc">Удалить карточку</string>
+    <string name="delete_npc_confirm">Удалить эту карточку из бестиария?</string>
+    <string name="no_npcs">Бестиарий пуст.\nСоздайте первую карточку противника!</string>
+
+    <!-- Whisper (chat) -->
+    <string name="whisper_to">Шёпот →</string>
+    <string name="whisper_public">Всем</string>
+    <string name="whisper_hint">Выберите получателя шёпота</string>
+
+    <!-- XP / Experience -->
+    <string name="experience_points">Опыт (ОО)</string>
+    <string name="award_xp">Выдать ОО</string>
+    <string name="xp_short">ОО</string>
+
+    <!-- Co-GM -->
+    <string name="co_gm">Помощник ГМ</string>
+    <string name="add_co_gm">Добавить помощника ГМ</string>
+    <string name="remove_co_gm">Снять роль ГМ</string>
+
+    <!-- Google Sign-In -->
+    <string name="sign_in_with_google">Войти через Google</string>
+    <string name="or_divider">— или —</string>
+
+    <!-- Magic Calculator / Spells -->
+    <string name="magic_tab">Магия</string>
+    <string name="spell_constructor">Конструктор заклинаний</string>
+    <string name="saved_spells">Заклинания</string>
+    <string name="spell_name">Название заклинания</string>
+    <string name="spell_cost">Стоимость</string>
+    <string name="spell_range">Дальность</string>
+    <string name="spell_speed">Скорость</string>
+    <string name="spell_area">Площадь</string>
+    <string name="spell_description">Описание эффекта</string>
+    <string name="spell_cast">Применить</string>
+    <string name="spell_save">Сохранить заклинание</string>
+    <string name="spell_not_enough_resources">Недостаточно ресурсов</string>
+    <string name="spell_cast_success">Заклинание применено!</string>
+    <string name="no_saved_spells">Нет сохранённых заклинаний</string>
+    <string name="resource_edit_hint">Зажмите значение для редактирования</string>
+</resources>

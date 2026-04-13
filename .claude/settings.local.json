@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"New-Item -ItemType Directory -Force -Path ''C:\\\\Users\\\\Max\\\\Documents\\\\QuestKeep\\\\app\\\\src\\\\main\\\\java\\\\com\\\\questkeep\\\\data\\\\local\\\\entity'' | Out-Null; Write-Host ''entity dir created''\")",
+      "Bash(powershell -Command \"New-Item -ItemType Directory -Force -Path ''C:\\\\Users\\\\Max\\\\Documents\\\\QuestKeep\\\\app\\\\src\\\\main\\\\java\\\\com\\\\questkeep\\\\data\\\\local\\\\database'' | Out-Null; Write-Host ''database dir created''\")",
+      "Bash(powershell -Command \":*)"
+    ]
+  }
+}
