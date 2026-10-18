@@ -15,17 +15,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -410,46 +417,55 @@ fun MagicTab(
         }
     }
 
+    val t = LocalXanteya.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    var isResourcesExpanded by rememberSaveable { mutableStateOf(!isLandscape) }
+
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = t.colors.bg,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
-            // ── Magic resource bars (always visible) ─────────────────────
+            // ── Magic resource bars (collapsible, compact in landscape) ───
             MagicResourcesSection(
                 character = character,
-                onDeltaChange = { name, delta -> characterViewModel.updateResource(name, delta) }
+                onDeltaChange = { name, delta -> characterViewModel.updateResource(name, delta) },
+                isExpanded = isResourcesExpanded,
+                onToggleExpand = { isResourcesExpanded = !isResourcesExpanded }
             )
 
-            HorizontalDivider(color = DarkSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
+            HorizontalDivider(color = t.colors.line, modifier = Modifier.padding(horizontal = 16.dp))
 
             // ── Tab row: Constructor / Saved spells ──────────────────────
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = DarkBackground,
-                contentColor = PrimaryPurpleLight
+                containerColor = t.colors.panel,
+                contentColor = t.colors.accent
             ) {
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
-                    text = { Text("⚗ Конструктор", fontSize = 13.sp) })
+                    text = { Text("⚗ Конструктор", fontFamily = t.display, fontSize = 13.sp, color = if (selectedTab == 0) t.colors.accent else t.colors.muted) })
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                    text = { Text("📖 Заклинания (${savedSpells.size})", fontSize = 13.sp) })
+                    text = { Text("📖 Заклинания (${savedSpells.size})", fontFamily = t.display, fontSize = 13.sp, color = if (selectedTab == 1) t.colors.accent else t.colors.muted) })
             }
 
-            when (selectedTab) {
-                0 -> XantheiaConstructorTab(
-                    character = character,
-                    onCast = { spell -> spellViewModel.castSpell(spell, character) },
-                    onSave = { spell -> spellViewModel.saveSpell(spell.copy(characterId = character.id)) }
-                )
-                1 -> SavedSpellsTab(
-                    spells = savedSpells,
-                    character = character,
-                    onCast = { spell -> spellViewModel.castSpell(spell, character) },
-                    onDelete = { spell -> spellViewModel.deleteSpell(spell) },
-                    onExport = { spellExportLauncher.launch("spells.json") },
-                    onImport = { spellImportLauncher.launch(arrayOf("application/json")) }
-                )
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when (selectedTab) {
+                    0 -> XantheiaConstructorTab(
+                        character = character,
+                        onCast = { spell -> spellViewModel.castSpell(spell, character) },
+                        onSave = { spell -> spellViewModel.saveSpell(spell.copy(characterId = character.id)) }
+                    )
+                    1 -> SavedSpellsTab(
+                        spells = savedSpells,
+                        character = character,
+                        onCast = { spell -> spellViewModel.castSpell(spell, character) },
+                        onDelete = { spell -> spellViewModel.deleteSpell(spell) },
+                        onExport = { spellExportLauncher.launch("spells.json") },
+                        onImport = { spellImportLauncher.launch(arrayOf("application/json")) }
+                    )
+                }
             }
         }
     }
@@ -462,22 +478,87 @@ fun MagicTab(
 @Composable
 private fun MagicResourcesSection(
     character: Character,
-    onDeltaChange: (String, Float) -> Unit
+    onDeltaChange: (String, Float) -> Unit,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit
 ) {
+    val t = LocalXanteya.current
     Column(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(
-            "Магические ресурсы",
-            style = MaterialTheme.typography.labelMedium,
-            color = SecondaryGold,
-            fontWeight = FontWeight.SemiBold
-        )
-        MagicResourceRow("+п", "Куар",   "quar",   character.quarResource,   character.maxQuarResource,   ResourceQuarColor,   onDeltaChange)
-        MagicResourceRow("-п", "Омбра",  "ombra",  character.ombraResource,  character.maxOmbraResource,  ResourceOmbraColor,  onDeltaChange)
-        MagicResourceRow("+э", "Веруна", "veruna", character.verunaResource, character.maxVerunaResource, ResourceVerunaColor, onDeltaChange)
-        MagicResourceRow("-э", "Сумени", "sumeni", character.sumeniResource, character.maxSumeniResource, ResourceSumeniColor, onDeltaChange)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(6.dp))
+                .clickable { onToggleExpand() }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "МАГИЧЕСКИЕ РЕСУРСЫ",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = t.colors.accent,
+                    fontFamily = t.display,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp
+                )
+                if (!isExpanded) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        CompactResourceBadge("К", character.quarResource, ResourceQuarColor)
+                        CompactResourceBadge("О", character.ombraResource, ResourceOmbraColor)
+                        CompactResourceBadge("В", character.verunaResource, ResourceVerunaColor)
+                        CompactResourceBadge("С", character.sumeniResource, ResourceSumeniColor)
+                    }
+                }
+            }
+            Icon(
+                imageVector = if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription = if (isExpanded) "Свернуть" else "Развернуть",
+                tint = t.colors.muted,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        AnimatedVisibility(visible = isExpanded) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MagicResourceRow("+п", "Куар",   "quar",   character.quarResource,   character.maxQuarResource,   ResourceQuarColor,   onDeltaChange)
+                MagicResourceRow("-п", "Омбра",  "ombra",  character.ombraResource,  character.maxOmbraResource,  ResourceOmbraColor,  onDeltaChange)
+                MagicResourceRow("+э", "Веруна", "veruna", character.verunaResource, character.maxVerunaResource, ResourceVerunaColor, onDeltaChange)
+                MagicResourceRow("-э", "Сумени", "sumeni", character.sumeniResource, character.maxSumeniResource, ResourceSumeniColor, onDeltaChange)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactResourceBadge(label: String, value: Float, color: Color) {
+    val fmt: (Float) -> String = { v ->
+        if (v == v.toInt().toFloat()) v.toInt().toString() else String.format("%.1f", v)
+    }
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = color.copy(alpha = 0.15f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(label, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(fmt(value), color = color, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -488,6 +569,7 @@ private fun MagicResourceRow(
     current: Float, max: Float, color: Color,
     onDeltaChange: (String, Float) -> Unit
 ) {
+    val t = LocalXanteya.current
     val fmt: (Float) -> String = { v ->
         if (v == v.toInt().toFloat()) v.toInt().toString() else String.format("%.1f", v)
     }
@@ -505,14 +587,16 @@ private fun MagicResourceRow(
                 .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text(symbol, color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(symbol, color = color, fontFamily = t.display, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
-        Text(name, color = TextSecondary, modifier = Modifier.width(50.dp),
+        Text(name, color = t.colors.text, modifier = Modifier.width(50.dp),
+            fontFamily = t.body,
             style = MaterialTheme.typography.bodySmall)
 
         Box(
             modifier = Modifier.weight(1f).height(12.dp)
-                .background(DarkSurface, RoundedCornerShape(6.dp))
+                .background(t.colors.panel, RoundedCornerShape(6.dp))
+                .border(1.dp, t.colors.line, RoundedCornerShape(6.dp))
         ) {
             val frac = if (max > 0f) (current / max).coerceIn(0f, 1f) else 0f
             Box(Modifier.fillMaxHeight().fillMaxWidth(frac).background(color, RoundedCornerShape(6.dp)))
@@ -520,7 +604,7 @@ private fun MagicResourceRow(
 
         Text(
             text = "${fmt(current)}/${fmt(max)}",
-            color = color, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+            color = color, fontFamily = t.display, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
             modifier = Modifier
                 .width(56.dp)
                 .combinedClickable(onClick = {}, onLongClick = { showEdit = true })
@@ -550,22 +634,23 @@ private fun ResourceEditDialog(
     onSetValue: (Float) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val t = LocalXanteya.current
     var text by remember { mutableStateOf(fmt(current)) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Изменить: $name", color = color, fontWeight = FontWeight.Bold) },
+        containerColor = t.colors.panel,
+        title = { Text("Изменить: $name", color = color, fontFamily = t.display, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Текущее: ${fmt(current)} / ${fmt(max)}", color = TextSecondary, fontSize = 12.sp)
+                Text("Текущее: ${fmt(current)} / ${fmt(max)}", color = t.colors.muted, fontFamily = t.body, fontSize = 12.sp)
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
-                    label = { Text("Новое значение (0 — ${fmt(max)})") },
+                    label = { Text("Новое значение (0 — ${fmt(max)})", color = t.colors.muted, fontFamily = t.body) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = color, unfocusedBorderColor = DarkSurfaceVariant,
-                        focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = color, unfocusedBorderColor = t.colors.line,
+                        focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
                         focusedLabelColor = color
                     )
                 )
@@ -578,10 +663,10 @@ private fun ResourceEditDialog(
                     if (v != null) onSetValue(v)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = color)
-            ) { Text("Сохранить", color = Color.White) }
+            ) { Text("Сохранить", fontFamily = t.display, color = Color.White) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
@@ -708,6 +793,7 @@ private fun XantheiaConstructorTab(
 
 @Composable
 private fun StepIndicatorRow(currentStep: Int) {
+    val t = LocalXanteya.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -720,18 +806,18 @@ private fun StepIndicatorRow(currentStep: Int) {
                     .size(30.dp)
                     .background(
                         when {
-                            step < currentStep  -> AccentGreen
-                            step == currentStep -> PrimaryPurple
-                            else                -> DarkSurface
+                            step < currentStep  -> t.colors.accent
+                            step == currentStep -> t.colors.hot
+                            else                -> t.colors.panel
                         },
                         CircleShape
                     )
                     .border(
                         1.dp,
                         when {
-                            step < currentStep  -> AccentGreen
-                            step == currentStep -> PrimaryPurpleLight
-                            else                -> DarkSurfaceVariant
+                            step < currentStep  -> t.colors.accent
+                            step == currentStep -> t.colors.hot
+                            else                -> t.colors.line
                         },
                         CircleShape
                     ),
@@ -739,7 +825,8 @@ private fun StepIndicatorRow(currentStep: Int) {
             ) {
                 Text(
                     text = if (step < currentStep) "✓" else step.toString(),
-                    color = if (step <= currentStep) Color.White else TextDisabled,
+                    color = if (step <= currentStep) t.colors.bg else t.colors.muted,
+                    fontFamily = t.display,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
                 )
@@ -749,7 +836,7 @@ private fun StepIndicatorRow(currentStep: Int) {
                     modifier = Modifier
                         .weight(1f)
                         .height(2.dp)
-                        .background(if (step < currentStep) AccentGreen else DarkSurface)
+                        .background(if (step < currentStep) t.colors.accent else t.colors.line)
                 )
             }
         }
@@ -763,6 +850,7 @@ private fun CoreGridStep(
     selectedCoreId: String?,
     onSelect: (CoreOption) -> Unit
 ) {
+    val t = LocalXanteya.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -770,7 +858,7 @@ private fun CoreGridStep(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Шаг 1: Выбор Ядра", color = PrimaryPurpleLight, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Text("ШАГ 1: ВЫБОР ЯДРА", color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 1.sp)
 
         CORES.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -786,7 +874,7 @@ private fun CoreGridStep(
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        Spacer(Modifier.height(80.dp))
+        Spacer(Modifier.height(100.dp))
     }
 }
 
@@ -799,6 +887,7 @@ private fun ModGridStep(
     onSelect: (ModOption) -> Unit,
     onBack: () -> Unit
 ) {
+    val t = LocalXanteya.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -806,7 +895,7 @@ private fun ModGridStep(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Шаг 2: Модификация", color = PrimaryPurpleLight, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Text("ШАГ 2: МОДИФИКАЦИЯ", color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 1.sp)
 
         MODIFICATIONS.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -833,10 +922,11 @@ private fun ModGridStep(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
             OutlinedButton(
                 onClick = onBack, modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
-            ) { Text("← Назад") }
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.muted),
+                border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
+            ) { Text("← Назад", fontFamily = t.display) }
         }
-        Spacer(Modifier.height(80.dp))
+        Spacer(Modifier.height(100.dp))
     }
 }
 
@@ -848,6 +938,7 @@ private fun ExpressionGridStep(
     onSelect: (ExpressionOption) -> Unit,
     onBack: () -> Unit
 ) {
+    val t = LocalXanteya.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -855,7 +946,7 @@ private fun ExpressionGridStep(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Шаг 3: Выражение", color = PrimaryPurpleLight, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Text("ШАГ 3: ВЫРАЖЕНИЕ", color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 1.sp)
 
         EXPRESSIONS.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -875,10 +966,11 @@ private fun ExpressionGridStep(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
             OutlinedButton(
                 onClick = onBack, modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
-            ) { Text("← Назад") }
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.muted),
+                border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
+            ) { Text("← Назад", fontFamily = t.display) }
         }
-        Spacer(Modifier.height(80.dp))
+        Spacer(Modifier.height(100.dp))
     }
 }
 
@@ -902,13 +994,14 @@ private fun AccentsStep(
     onBack: () -> Unit,
     onReset: () -> Unit
 ) {
+    val t = LocalXanteya.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Шаг 4: Акценты", color = PrimaryPurpleLight, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text("ШАГ 4: АКЦЕНТЫ", color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 1.sp)
         }
 
         // Accent blocks
@@ -940,24 +1033,25 @@ private fun AccentsStep(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(DarkCard, RoundedCornerShape(12.dp))
+                    .background(t.colors.panel, RoundedCornerShape(t.corner))
+                    .border(1.dp, t.colors.line, RoundedCornerShape(t.corner))
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("💾 Сохранить заклинание", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text("💾 Сохранить заклинание", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 OutlinedTextField(
                     value = spellName,
-                    onValueChange = onSpellNameChange,
-                    label = { Text("Название") },
+                    onSpellNameChange,
+                    label = { Text("Название", color = t.colors.muted, fontFamily = t.body) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor   = PrimaryPurple,
-                        unfocusedBorderColor = DarkSurfaceVariant,
-                        focusedTextColor     = TextPrimary,
-                        unfocusedTextColor   = TextPrimary,
-                        focusedLabelColor    = PrimaryPurpleLight,
-                        unfocusedLabelColor  = TextDisabled
+                        focusedBorderColor   = t.colors.accent,
+                        unfocusedBorderColor = t.colors.line,
+                        focusedTextColor     = t.colors.text,
+                        unfocusedTextColor   = t.colors.text,
+                        focusedLabelColor    = t.colors.accent,
+                        unfocusedLabelColor  = t.colors.muted
                     )
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -966,21 +1060,23 @@ private fun AccentsStep(
                         enabled = canCast,
                         modifier = Modifier.weight(1f).height(46.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryPurple,
-                            disabledContainerColor = DarkSurface
+                            containerColor = t.colors.accent,
+                            contentColor = t.colors.bg,
+                            disabledContainerColor = t.colors.panel.copy(alpha = 0.5f)
                         )
                     ) {
                         Icon(Icons.Filled.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Применить", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Применить", fontFamily = t.display, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                     OutlinedButton(
                         onClick = onSave,
                         enabled = spellName.isNotBlank() || (calcResult != null),
                         modifier = Modifier.weight(1f).height(46.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SecondaryGold)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.accent),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
                     ) {
-                        Text("Сохранить", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Сохранить", fontFamily = t.display, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -992,21 +1088,23 @@ private fun AccentsStep(
                 OutlinedButton(
                     onClick = onBack,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
-                ) { Text("← Назад") }
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.muted),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
+                ) { Text("← Назад", fontFamily = t.display) }
                 OutlinedButton(
                     onClick = onReset,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentRed)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentRed),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
                 ) {
                     Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Сброс")
+                    Text("Сброс", fontFamily = t.display)
                 }
             }
         }
 
-        item { Spacer(Modifier.height(80.dp)) }
+        item { Spacer(Modifier.height(100.dp)) }
     }
 }
 
@@ -1018,16 +1116,18 @@ private fun AccentBlock(
     selectedIdx: Int,
     onSelect: (Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DarkCard, RoundedCornerShape(10.dp))
+            .background(t.colors.panel, RoundedCornerShape(t.corner))
+            .border(1.dp, t.colors.line, RoundedCornerShape(t.corner))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
             accent.name,
-            color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp
+            color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.SemiBold, fontSize = 13.sp
         )
         accent.levels.forEachIndexed { idx, level ->
             val isSelected = idx == selectedIdx
@@ -1035,24 +1135,25 @@ private fun AccentBlock(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (isSelected) Color(0xFF2D1050) else DarkBackground,
-                        RoundedCornerShape(8.dp)
+                        if (isSelected) t.colors.bg else t.colors.panel,
+                        RoundedCornerShape(t.corner)
                     )
                     .border(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) PrimaryPurple else DarkSurfaceVariant,
-                        shape = RoundedCornerShape(8.dp)
+                        color = if (isSelected) t.colors.accent else t.colors.line,
+                        shape = RoundedCornerShape(t.corner)
                     )
                     .clickable { onSelect(idx) }
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Text(
                     level.value,
-                    color = if (isSelected) PrimaryPurpleLight else TextSecondary,
+                    color = if (isSelected) t.colors.accent else t.colors.text,
+                    fontFamily = t.display,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
-                Text(level.description, color = TextDisabled, fontSize = 11.sp)
+                Text(level.description, color = t.colors.muted, fontFamily = t.body, fontSize = 11.sp)
             }
         }
     }
@@ -1069,51 +1170,52 @@ private fun CostResultCard(
     powerLevel: Int,
     effectText: String
 ) {
+    val t = LocalXanteya.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF160830), RoundedCornerShape(12.dp))
-            .border(1.dp, PrimaryPurple.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .background(t.colors.panel, RoundedCornerShape(t.corner))
+            .border(1.5.dp, t.colors.accent, RoundedCornerShape(t.corner))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("✨ Итоговая стоимость", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Text("✨ Итоговая стоимость", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 14.sp)
 
         // Cost display — positives and negatives
         val isFree = calcResult.posP == 0f && calcResult.negP == 0f &&
                 calcResult.posE == 0f && calcResult.negE == 0f
         if (isFree) {
-            Text("Бесплатно", color = TextSecondary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text("Бесплатно", color = t.colors.muted, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (calcResult.posP > 0f)
-                    Text("+${fmtF(calcResult.posP)}п", color = ResourceQuarColor,  fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    Text("+${fmtF(calcResult.posP)}п", color = ResourceQuarColor,  fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 22.sp)
                 if (calcResult.negP < 0f)
-                    Text("${fmtF(calcResult.negP)}п",  color = ResourceOmbraColor,  fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    Text("${fmtF(calcResult.negP)}п",  color = ResourceOmbraColor,  fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 22.sp)
                 if (calcResult.posE > 0f)
-                    Text("+${fmtF(calcResult.posE)}э", color = ResourceVerunaColor, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    Text("+${fmtF(calcResult.posE)}э", color = ResourceVerunaColor, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 22.sp)
                 if (calcResult.negE < 0f)
-                    Text("${fmtF(calcResult.negE)}э",  color = ResourceSumeniColor, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    Text("${fmtF(calcResult.negE)}э",  color = ResourceSumeniColor, fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 22.sp)
             }
         }
-        Text("Множитель: x${calcResult.multiplier}", color = TextDisabled, fontSize = 12.sp)
+        Text("Множитель: x${calcResult.multiplier}", color = t.colors.muted, fontFamily = t.body, fontSize = 12.sp)
 
-        HorizontalDivider(color = DarkSurfaceVariant)
+        HorizontalDivider(color = t.colors.line)
 
         // Params
-        Text("📜 Параметры", color = TextSecondary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+        Text("📜 Параметры", color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
         val modStr = if (mod.id != "none") " + ${mod.name}" else ""
-        Text("Ядро: ${core.name}$modStr", color = TextSecondary, fontSize = 12.sp)
-        Text("Выражение: ${expression.name} (${expression.slots} яч.)", color = TextSecondary, fontSize = 12.sp)
-        Text("Уровень силы: x$powerLevel", color = TextSecondary, fontSize = 12.sp)
+        Text("Ядро: ${core.name}$modStr", color = t.colors.text, fontFamily = t.body, fontSize = 12.sp)
+        Text("Выражение: ${expression.name} (${expression.slots} яч.)", color = t.colors.text, fontFamily = t.body, fontSize = 12.sp)
+        Text("Уровень силы: x$powerLevel", color = t.colors.text, fontFamily = t.body, fontSize = 12.sp)
 
-        HorizontalDivider(color = DarkSurfaceVariant)
+        HorizontalDivider(color = t.colors.line)
 
         // Effect
-        Text("⚡ Эффект", color = TextSecondary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+        Text("⚡ Эффект", color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
         Text(
             effectText.ifEmpty { "Эффект не определён" },
-            color = PrimaryPurpleLight, fontSize = 14.sp, fontStyle = FontStyle.Italic
+            color = t.colors.hot, fontFamily = t.body, fontSize = 14.sp, fontStyle = FontStyle.Italic
         )
     }
 }
@@ -1130,23 +1232,24 @@ private fun SelectionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val t = LocalXanteya.current
     val bgColor = when {
-        selected  -> Color(0xFF3B0764)
-        disabled  -> DarkCard.copy(alpha = 0.35f)
-        else      -> DarkCard
+        selected  -> t.colors.panel
+        disabled  -> t.colors.panel.copy(alpha = 0.35f)
+        else      -> t.colors.bg
     }
     val borderColor = when {
-        selected  -> PrimaryPurple
-        disabled  -> DarkSurfaceVariant.copy(alpha = 0.25f)
-        else      -> DarkSurfaceVariant
+        selected  -> t.colors.accent
+        disabled  -> t.colors.line.copy(alpha = 0.25f)
+        else      -> t.colors.line
     }
     Column(
         modifier = modifier
-            .background(bgColor, RoundedCornerShape(10.dp))
+            .background(bgColor, RoundedCornerShape(t.corner))
             .border(
                 width = if (selected) 2.dp else 1.dp,
                 color = borderColor,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(t.corner)
             )
             .then(if (!disabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(12.dp),
@@ -1154,7 +1257,8 @@ private fun SelectionCard(
     ) {
         Text(
             title,
-            color = if (disabled) TextDisabled else TextPrimary,
+            color = if (disabled) t.colors.muted.copy(alpha = 0.5f) else t.colors.text,
+            fontFamily = t.display,
             fontWeight = FontWeight.SemiBold,
             fontSize = 13.sp,
             maxLines = 2,
@@ -1163,12 +1267,13 @@ private fun SelectionCard(
         if (subtitle.isNotEmpty()) {
             Text(
                 subtitle,
-                color = if (disabled) TextDisabled.copy(alpha = 0.6f) else PrimaryPurpleLight,
+                color = if (disabled) t.colors.muted.copy(alpha = 0.5f) else t.colors.accent,
+                fontFamily = t.body,
                 fontSize = 11.sp
             )
         }
         if (note.isNotEmpty()) {
-            Text(note, color = AccentRed, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            Text(note, color = t.colors.hot, fontFamily = t.body, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -1186,6 +1291,7 @@ private fun SavedSpellsTab(
     onExport: () -> Unit = {},
     onImport: () -> Unit = {}
 ) {
+    val t = LocalXanteya.current
     Column(modifier = Modifier.fillMaxSize()) {
         // Export / Import toolbar
         Row(
@@ -1193,10 +1299,10 @@ private fun SavedSpellsTab(
             horizontalArrangement = Arrangement.End
         ) {
             IconButton(onClick = onExport) {
-                Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = TextSecondary)
+                Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = t.colors.muted)
             }
             IconButton(onClick = onImport) {
-                Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = TextSecondary)
+                Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = t.colors.muted)
             }
         }
 
@@ -1207,11 +1313,18 @@ private fun SavedSpellsTab(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("📖", fontSize = 40.sp)
-                    Text("Нет сохранённых заклинаний", color = TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                    Text(
+                        "Нет сохранённых заклинаний",
+                        color = t.colors.text,
+                        fontFamily = t.display,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
                     Text(
                         "Создайте заклинание в конструкторе\nи нажмите «Сохранить»",
-                        color = TextDisabled, style = MaterialTheme.typography.bodySmall,
+                        color = t.colors.muted,
+                        fontFamily = t.body,
+                        style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1219,7 +1332,7 @@ private fun SavedSpellsTab(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp, start = 16.dp, end = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(spells, key = { it.id }) { spell ->
@@ -1230,7 +1343,7 @@ private fun SavedSpellsTab(
                         onDelete = { onDelete(spell) }
                     )
                 }
-                item { Spacer(Modifier.height(80.dp)) }
+                item { Spacer(Modifier.height(100.dp)) }
             }
         }
     }
@@ -1244,6 +1357,7 @@ private fun SavedSpellCard(
     onCast: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val t = LocalXanteya.current
     var showDetails by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -1255,11 +1369,11 @@ private fun SavedSpellCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DarkCard, RoundedCornerShape(12.dp))
+            .background(t.colors.panel, RoundedCornerShape(t.corner))
             .border(
                 width = 1.dp,
-                color = if (canCast) PrimaryPurple.copy(alpha = 0.45f) else DarkSurfaceVariant,
-                shape = RoundedCornerShape(12.dp)
+                color = if (canCast) t.colors.accent.copy(alpha = 0.5f) else t.colors.line,
+                shape = RoundedCornerShape(t.corner)
             )
             .combinedClickable(
                 onClick = { showDetails = !showDetails },
@@ -1277,12 +1391,16 @@ private fun SavedSpellCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = spell.name.ifBlank { "Без названия" },
-                    color = TextPrimary, fontWeight = FontWeight.SemiBold,
+                    color = t.colors.text,
+                    fontFamily = t.display,
+                    fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
                     text = spell.costSummary,
-                    color = PrimaryPurpleLight, fontSize = 12.sp
+                    color = t.colors.accent,
+                    fontFamily = t.body,
+                    fontSize = 12.sp
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1290,28 +1408,34 @@ private fun SavedSpellCard(
                     onClick = onCast,
                     enabled = canCast,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryPurple,
-                        disabledContainerColor = DarkSurface
+                        containerColor = t.colors.accent,
+                        contentColor = t.colors.bg,
+                        disabledContainerColor = t.colors.panel.copy(alpha = 0.5f),
+                        disabledContentColor = t.colors.muted
                     ),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(Icons.Filled.AutoFixHigh, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Использовать", fontSize = 11.sp)
+                    Text("Использовать", fontSize = 11.sp, fontFamily = t.display)
                 }
                 IconButton(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier.size(36.dp)
                 ) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Удалить",
-                        tint = AccentRed.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "Удалить",
+                        tint = t.colors.hot.copy(alpha = 0.8f),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
 
         // Expandable details
         if (showDetails) {
-            HorizontalDivider(color = DarkSurfaceVariant)
+            HorizontalDivider(color = t.colors.line)
 
             if (spell.coreName.isNotEmpty()) {
                 val coreWithMod = spell.coreName +
@@ -1335,7 +1459,7 @@ private fun SavedSpellCard(
             }
 
             if (!canCast) {
-                Text("⚠ Недостаточно ресурсов", color = AccentRed, fontSize = 11.sp)
+                Text("⚠ Недостаточно ресурсов", color = t.colors.hot, fontFamily = t.body, fontSize = 11.sp)
             }
         }
     }
@@ -1343,22 +1467,23 @@ private fun SavedSpellCard(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = DarkCard,
-            title = { Text("Удалить заклинание?", color = TextPrimary) },
+            containerColor = t.colors.panel,
+            title = { Text("Удалить заклинание?", color = t.colors.text, fontFamily = t.display) },
             text = {
                 Text(
                     "«${spell.name.ifBlank { "Без названия" }}» будет удалено из книги.",
-                    color = TextSecondary
+                    color = t.colors.muted,
+                    fontFamily = t.body
                 )
             },
             confirmButton = {
                 TextButton(onClick = { onDelete(); showDeleteConfirm = false }) {
-                    Text("Удалить", color = AccentRed)
+                    Text("Удалить", color = t.colors.hot, fontFamily = t.display)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Отмена", color = TextSecondary)
+                    Text("Отмена", color = t.colors.muted, fontFamily = t.display)
                 }
             }
         )
@@ -1368,23 +1493,25 @@ private fun SavedSpellCard(
 @Composable
 private fun SpellDetailRow(label: String, value: String) {
     if (value.isBlank()) return
+    val t = LocalXanteya.current
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("$label:", color = TextDisabled, fontSize = 11.sp, modifier = Modifier.width(70.dp))
-        Text(value, color = TextSecondary, fontSize = 11.sp, modifier = Modifier.weight(1f))
+        Text("$label:", color = t.colors.muted, fontFamily = t.body, fontSize = 11.sp, modifier = Modifier.width(70.dp))
+        Text(value, color = t.colors.text, fontFamily = t.body, fontSize = 11.sp, modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
 private fun SpellCostBadge(symbol: String, cost: Float, color: Color) {
+    val t = LocalXanteya.current
     Box(
         modifier = Modifier
-            .background(color.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
-            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = 0.15f), RoundedCornerShape(t.corner / 2))
+            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(t.corner / 2))
             .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Text(
             "$symbol ${fmtF(cost)}",
-            color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold
+            color = color, fontFamily = t.display, fontSize = 11.sp, fontWeight = FontWeight.Bold
         )
     }
 }

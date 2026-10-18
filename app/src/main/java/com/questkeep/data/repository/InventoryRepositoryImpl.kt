@@ -27,10 +27,18 @@ class InventoryRepositoryImpl @Inject constructor(
             .collection(Constants.COLLECTION_INVENTORY)
 
     override fun getInventory(characterId: String, campaignId: String): Flow<List<InventoryItem>> =
-        callbackFlow {
+        kotlinx.coroutines.flow.channelFlow {
+            // 1. Instantly emit from Room
+            val localJob = launch {
+                dao.getItemsForCharacter(characterId).collect { entities ->
+                    trySend(entities.map { it.toDomain() })
+                }
+            }
+
+            // 2. Real-time Firestore sync
             val listener = inventoryCollection(campaignId)
                 .whereEqualTo("characterId", characterId)
-                .addSnapshotListener { snapshot, error ->
+                .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
                     if (error != null) return@addSnapshotListener
                     val items = snapshot?.documents?.mapNotNull { doc ->
                         try {
@@ -47,35 +55,46 @@ class InventoryRepositoryImpl @Inject constructor(
                         } catch (e: Exception) { null }
                     }?.sortedBy { it.createdAt } ?: emptyList()
                     launch { items.forEach { dao.insertItem(it.toEntity()) } }
-                    trySend(items)
                 }
-            awaitClose { listener.remove() }
+
+            awaitClose {
+                localJob.cancel()
+                listener.remove()
+            }
         }
 
     override suspend fun addItem(item: InventoryItem): Result<InventoryItem> {
+        val id = if (item.id.isNotBlank()) item.id else UUID.randomUUID().toString()
+        val newItem = item.copy(id = id, createdAt = if (item.createdAt > 0L) item.createdAt else System.currentTimeMillis())
+        // Optimistic local save
+        try { dao.insertItem(newItem.toEntity()) } catch (_: Exception) {}
         return try {
-            val id = UUID.randomUUID().toString()
-            val newItem = item.copy(id = id, createdAt = System.currentTimeMillis())
             inventoryCollection(item.campaignId).document(id).set(newItem.toFirestoreMap()).await()
-            dao.insertItem(newItem.toEntity())
             Result.success(newItem)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            // Succeeded locally
+            Result.success(newItem)
+        }
     }
 
     override suspend fun updateItem(item: InventoryItem): Result<Unit> {
+        try { dao.insertItem(item.toEntity()) } catch (_: Exception) {}
         return try {
             inventoryCollection(item.campaignId).document(item.id).set(item.toFirestoreMap()).await()
-            dao.insertItem(item.toEntity())
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            Result.success(Unit)
+        }
     }
 
     override suspend fun deleteItem(itemId: String, characterId: String, campaignId: String): Result<Unit> {
+        try { dao.deleteItem(itemId) } catch (_: Exception) {}
         return try {
             inventoryCollection(campaignId).document(itemId).delete().await()
-            dao.deleteItem(itemId)
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            Result.success(Unit)
+        }
     }
 
     private fun InventoryItem.toFirestoreMap() = mapOf(

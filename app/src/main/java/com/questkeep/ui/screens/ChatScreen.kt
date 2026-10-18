@@ -44,6 +44,7 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     val messages by viewModel.messages.collectAsState()
     val isSending by viewModel.isSending.collectAsState()
     val isUploadingImage by viewModel.isUploadingImage.collectAsState()
@@ -67,8 +68,6 @@ fun ChatScreen(
         }
     }
 
-    // @mention autocomplete state
-    // We show suggestions when inputText contains "@" without a trailing space after it
     val atIndex = remember(inputText) { inputText.lastIndexOf('@') }
     val mentionPrefix = remember(inputText, atIndex) {
         if (atIndex >= 0 && !inputText.substring(atIndex).contains(' ')) {
@@ -89,7 +88,6 @@ fun ChatScreen(
         }
     }
 
-    // Show snackbar on image upload error
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(imageUploadError) {
         val err = imageUploadError
@@ -106,231 +104,235 @@ fun ChatScreen(
     }
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = t.colors.bg,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { scaffoldPadding ->
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(scaffoldPadding)
-            .background(DarkBackground)
-    ) {
-        if (campaignId == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.no_campaign_selected), color = TextSecondary)
-            }
-            return@Column
-        }
-
-        // Messages list
-        LazyColumn(
-            state = listState,
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
+                .fillMaxSize()
+                .padding(scaffoldPadding)
+                .background(t.colors.bg)
         ) {
-            items(messages, key = { it.id }) { message ->
-                ChatMessageItem(
-                    message = message,
-                    isCurrentUser = message.senderId == viewModel.currentUserId
-                )
-            }
-        }
-
-        // Whisper target selector (only if there are other players)
-        if (campaignPlayers.isNotEmpty()) {
-            WhisperTargetRow(
-                players = campaignPlayers,
-                selectedTarget = whisperTarget,
-                onTargetSelected = { viewModel.setWhisperTarget(it) }
-            )
-        }
-
-        // @mention suggestions dropdown (shown above input)
-        if (showMentionDropdown) {
-            MentionSuggestionsRow(
-                suggestions = mentionSuggestions,
-                onSelect = { player ->
-                    // Replace "@prefix" with the player's name + set as whisper target
-                    inputText = if (atIndex >= 0) inputText.substring(0, atIndex) else inputText
-                    viewModel.setWhisperTarget(player)
-                    focusManager.clearFocus()
-                }
-            )
-        }
-
-        // Input area — tinted purple if whisper mode active
-        val inputBg = if (whisperTarget != null) Color(0xFF1A0A2E) else DarkSurface
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(inputBg)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Image picker button
-            IconButton(
-                onClick = { imageLauncher.launch("image/*") },
-                enabled = !isUploadingImage,
-                modifier = Modifier.size(40.dp)
-            ) {
-                if (isUploadingImage) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = PrimaryPurpleLight,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        Icons.Filled.Image,
-                        contentDescription = "Отправить изображение",
-                        tint = TextSecondary
-                    )
-                }
-            }
-
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                modifier = Modifier.weight(1f),
-                placeholder = {
+            if (campaignId == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        if (whisperTarget != null)
-                            "${stringResource(R.string.whisper_to)} ${whisperTarget!!.name}…"
-                        else
-                            stringResource(R.string.message_hint),
-                        color = TextDisabled
+                        stringResource(R.string.no_campaign_selected),
+                        color = t.colors.muted,
+                        fontFamily = t.body
                     )
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = {
-                    if (inputText.isNotBlank() && !isSending) {
-                        viewModel.sendMessage(campaignId, inputText, senderName)
-                        inputText = ""
-                        focusManager.clearFocus()
-                    }
-                }),
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (whisperTarget != null) PrimaryPurpleLight else PrimaryPurple,
-                    unfocusedBorderColor = if (whisperTarget != null) PrimaryPurple else DarkSurfaceVariant,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary
-                )
-            )
-            IconButton(
-                onClick = {
-                    if (inputText.isNotBlank() && !isSending) {
-                        viewModel.sendMessage(campaignId, inputText, senderName)
-                        inputText = ""
-                        focusManager.clearFocus()
-                    }
-                },
-                enabled = inputText.isNotBlank() && !isSending,
+                }
+                return@Column
+            }
+
+            // Messages list
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
-                    .background(
-                        if (whisperTarget != null) PrimaryPurpleLight else PrimaryPurple,
-                        RoundedCornerShape(50)
-                    )
-                    .size(48.dp)
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Send,
-                    contentDescription = stringResource(R.string.send),
-                    tint = OnPrimary
+                items(messages, key = { it.id }) { message ->
+                    ChatMessageItem(
+                        message = message,
+                        isCurrentUser = message.senderId == viewModel.currentUserId
+                    )
+                }
+            }
+
+            // Whisper target selector (only if there are other players)
+            if (campaignPlayers.isNotEmpty()) {
+                WhisperTargetRow(
+                    players = campaignPlayers,
+                    selectedTarget = whisperTarget,
+                    onTargetSelected = { viewModel.setWhisperTarget(it) }
                 )
             }
+
+            // @mention suggestions dropdown
+            if (showMentionDropdown) {
+                MentionSuggestionsRow(
+                    suggestions = mentionSuggestions,
+                    onSelect = { player ->
+                        inputText = if (atIndex >= 0) inputText.substring(0, atIndex) else inputText
+                        viewModel.setWhisperTarget(player)
+                        focusManager.clearFocus()
+                    }
+                )
+            }
+
+            // Input area
+            val inputBg = if (whisperTarget != null) t.colors.hot.copy(alpha = 0.12f) else t.colors.panel
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(inputBg)
+                    .border(1.dp, t.colors.line.copy(alpha = 0.4f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(
+                    onClick = { imageLauncher.launch("image/*") },
+                    enabled = !isUploadingImage,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    if (isUploadingImage) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = t.colors.accent,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            Icons.Filled.Image,
+                            contentDescription = "Отправить изображение",
+                            tint = t.colors.muted
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            if (whisperTarget != null)
+                                "${stringResource(R.string.whisper_to)} ${whisperTarget!!.name}…"
+                            else
+                                stringResource(R.string.message_hint),
+                            color = t.colors.muted,
+                            fontFamily = t.body
+                        )
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = {
+                        if (inputText.isNotBlank() && !isSending) {
+                            viewModel.sendMessage(campaignId, inputText, senderName)
+                            inputText = ""
+                            focusManager.clearFocus()
+                        }
+                    }),
+                    shape = RoundedCornerShape(t.corner.coerceAtLeast(8.dp)),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (whisperTarget != null) t.colors.hot else t.colors.accent,
+                        unfocusedBorderColor = t.colors.line,
+                        focusedTextColor = t.colors.text,
+                        unfocusedTextColor = t.colors.text,
+                        focusedContainerColor = t.colors.panel,
+                        unfocusedContainerColor = t.colors.panel
+                    )
+                )
+
+                IconButton(
+                    onClick = {
+                        if (inputText.isNotBlank() && !isSending) {
+                            viewModel.sendMessage(campaignId, inputText, senderName)
+                            inputText = ""
+                            focusManager.clearFocus()
+                        }
+                    },
+                    enabled = inputText.isNotBlank() && !isSending,
+                    modifier = Modifier
+                        .background(
+                            if (whisperTarget != null) t.colors.hot else t.colors.accent,
+                            RoundedCornerShape(t.corner.coerceAtLeast(8.dp))
+                        )
+                        .size(44.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = stringResource(R.string.send),
+                        tint = t.colors.bg
+                    )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .background(inputBg)
+            )
         }
-        // Spacer to clear the dice FAB
-        Spacer(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp)
-                .background(inputBg)
-        )
-    }
     }
 }
 
-/**
- * Horizontal popup row showing @mention suggestions above the input field.
- * Tapping a suggestion sets whisper target and clears the @... from input.
- */
 @Composable
 private fun MentionSuggestionsRow(
     suggestions: List<PlayerInfo>,
     onSelect: (PlayerInfo) -> Unit
 ) {
+    val t = LocalXanteya.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF120826))
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("@", color = PrimaryPurpleLight, fontSize = 12.sp,
-            fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 2.dp))
-        suggestions.forEach { player ->
-            Box(
-                modifier = Modifier
-                    .background(Color(0xFF1A0A2E), RoundedCornerShape(12.dp))
-                    .border(1.dp, PrimaryPurple, RoundedCornerShape(12.dp))
-                    .clickable { onSelect(player) }
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(player.name, color = PrimaryPurpleLight, fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-/**
- * Horizontal row of player chips for whisper target selection.
- * First chip is always "Всем" (public). Other chips are players.
- */
-@Composable
-private fun WhisperTargetRow(
-    players: List<PlayerInfo>,
-    selectedTarget: PlayerInfo?,
-    onTargetSelected: (PlayerInfo?) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(DarkSurface)
+            .background(t.colors.panel)
+            .border(1.dp, t.colors.line)
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            "🤫",
-            fontSize = 14.sp,
+            "@",
+            color = t.colors.accent,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(end = 2.dp)
         )
+        suggestions.forEach { player ->
+            Box(
+                modifier = Modifier
+                    .background(t.colors.bg, RoundedCornerShape(t.corner))
+                    .border(1.dp, t.colors.accent, RoundedCornerShape(t.corner))
+                    .clickable { onSelect(player) }
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    player.name,
+                    color = t.colors.accent,
+                    fontSize = 12.sp,
+                    fontFamily = t.display,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
 
-        // "Всем" chip — clears whisper target
+@Composable
+private fun WhisperTargetRow(
+    players: List<PlayerInfo>,
+    selectedTarget: PlayerInfo?,
+    onTargetSelected: (PlayerInfo?) -> Unit
+) {
+    val t = LocalXanteya.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(t.colors.panel)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("🤫", fontSize = 14.sp, modifier = Modifier.padding(end = 2.dp))
+
         WhisperChip(
             label = stringResource(R.string.whisper_public),
             isSelected = selectedTarget == null,
-            selectedColor = DarkSurfaceVariant,
             onClick = { onTargetSelected(null) }
         )
 
-        // Player chips
         players.forEach { player ->
             WhisperChip(
                 label = player.name,
                 isSelected = selectedTarget?.userId == player.userId,
-                selectedColor = PrimaryPurpleDark,
                 onClick = {
                     onTargetSelected(if (selectedTarget?.userId == player.userId) null else player)
                 }
@@ -343,21 +345,27 @@ private fun WhisperTargetRow(
 private fun WhisperChip(
     label: String,
     isSelected: Boolean,
-    selectedColor: Color,
     onClick: () -> Unit
 ) {
-    val bg = if (isSelected) selectedColor else DarkBackground
-    val border = if (isSelected) PrimaryPurple else DarkSurfaceVariant
-    val textColor = if (isSelected) PrimaryPurpleLight else TextSecondary
+    val t = LocalXanteya.current
+    val bg = if (isSelected) t.colors.accent.copy(alpha = 0.2f) else t.colors.bg
+    val border = if (isSelected) t.colors.accent else t.colors.line
+    val textColor = if (isSelected) t.colors.accent else t.colors.muted
 
     Box(
         modifier = Modifier
-            .background(bg, RoundedCornerShape(16.dp))
-            .border(1.dp, border, RoundedCornerShape(16.dp))
+            .background(bg, RoundedCornerShape(t.corner))
+            .border(1.dp, border, RoundedCornerShape(t.corner))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = textColor, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal)
+        Text(
+            label,
+            color = textColor,
+            fontSize = 12.sp,
+            fontFamily = t.body,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+        )
     }
 }

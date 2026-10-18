@@ -1,5 +1,6 @@
 package com.questkeep.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,30 +30,37 @@ fun PlayerNotesScreen(
     onBack: () -> Unit,
     viewModel: PlayerNoteViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     val notes by viewModel.notes.collectAsState()
     val editingNote by viewModel.editingNote.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val error by viewModel.error.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.loadNotes()
+    }
+
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = t.colors.bg,
         topBar = {
             TopAppBar(
-                title = { Text("📝 Мои заметки", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text("📝 Мои заметки", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = t.colors.text)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = t.colors.panel)
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.startCreating() },
-                containerColor = PrimaryPurple
+                containerColor = t.colors.accent,
+                contentColor = t.colors.bg,
+                shape = RoundedCornerShape(t.corner)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Новая заметка", tint = OnPrimary)
+                Icon(Icons.Filled.Add, contentDescription = "Новая заметка")
             }
         }
     ) { padding ->
@@ -65,7 +73,8 @@ fun PlayerNotesScreen(
             ) {
                 Text(
                     "Нет заметок. Нажмите + чтобы создать.",
-                    color = TextSecondary,
+                    color = t.colors.muted,
+                    fontFamily = t.body,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -74,8 +83,9 @@ fun PlayerNotesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
             ) {
                 items(notes, key = { it.id }) { note ->
                     NoteCard(
@@ -94,8 +104,9 @@ fun PlayerNotesScreen(
         }
         Snackbar(
             modifier = Modifier.padding(16.dp),
-            containerColor = AccentRed
-        ) { Text(msg, color = OnPrimary) }
+            containerColor = t.colors.hot,
+            contentColor = t.colors.bg
+        ) { Text(msg, fontFamily = t.body) }
     }
 
     if (editingNote != null) {
@@ -114,6 +125,7 @@ private fun NoteCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val t = LocalXanteya.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val dateStr = remember(note.updatedAt) {
         SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(note.updatedAt))
@@ -121,8 +133,9 @@ private fun NoteCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = DarkCard
+        shape = RoundedCornerShape(t.corner),
+        color = t.colors.panel,
+        border = BorderStroke(1.dp, t.colors.line)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -135,7 +148,8 @@ private fun NoteCard(
                         Text(
                             note.title,
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary,
+                            color = t.colors.text,
+                            fontFamily = t.display,
                             fontWeight = FontWeight.SemiBold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -144,40 +158,43 @@ private fun NoteCard(
                         Text(
                             note.content,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
+                            color = t.colors.muted,
+                            fontFamily = t.body,
                             maxLines = 4
                         )
                     }
                 }
                 Row {
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Редактировать", tint = PrimaryPurple)
+                        Icon(Icons.Filled.Edit, contentDescription = "Редактировать", tint = t.colors.accent)
                     }
                     IconButton(onClick = { showDeleteConfirm = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Удалить", tint = AccentRed)
+                        Icon(Icons.Filled.Delete, contentDescription = "Удалить", tint = t.colors.hot)
                     }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(dateStr, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+            Text(dateStr, style = MaterialTheme.typography.labelSmall, color = t.colors.muted, fontFamily = t.body)
         }
     }
 
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = DarkCard,
-            title = { Text("Удалить заметку?", color = TextPrimary) },
-            text = { Text("Это действие нельзя отменить.", color = TextSecondary) },
+            containerColor = t.colors.panel,
+            shape = RoundedCornerShape(t.corner),
+            title = { Text("Удалить заметку?", color = t.colors.text, fontFamily = t.display) },
+            text = { Text("Это действие нельзя отменить.", color = t.colors.muted, fontFamily = t.body) },
             confirmButton = {
                 Button(
                     onClick = { showDeleteConfirm = false; onDelete() },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
-                ) { Text("Удалить") }
+                    colors = ButtonDefaults.buttonColors(containerColor = t.colors.hot, contentColor = t.colors.bg),
+                    shape = RoundedCornerShape(t.corner)
+                ) { Text("Удалить", fontFamily = t.display) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Отмена", color = TextSecondary)
+                    Text("Отмена", color = t.colors.muted, fontFamily = t.body)
                 }
             }
         )
@@ -192,25 +209,24 @@ private fun NoteEditSheet(
     onDismiss: () -> Unit,
     onSave: (title: String, content: String) -> Unit
 ) {
+    val t = LocalXanteya.current
     var title by remember(note.id) { mutableStateOf(note.title) }
     var content by remember(note.id) { mutableStateOf(note.content) }
 
-    val fieldColors = TextFieldDefaults.colors(
-        focusedContainerColor = DarkSurfaceVariant,
-        unfocusedContainerColor = DarkSurfaceVariant,
-        focusedTextColor = TextPrimary,
-        unfocusedTextColor = TextPrimary,
-        focusedLabelColor = PrimaryPurple,
-        unfocusedLabelColor = TextSecondary,
-        focusedIndicatorColor = PrimaryPurple,
-        unfocusedIndicatorColor = DarkSurfaceVariant,
-        cursorColor = PrimaryPurple
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = t.colors.accent,
+        unfocusedBorderColor = t.colors.line,
+        focusedTextColor = t.colors.text,
+        unfocusedTextColor = t.colors.text,
+        focusedLabelColor = t.colors.accent,
+        unfocusedLabelColor = t.colors.muted,
+        cursorColor = t.colors.accent
     )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = TextSecondary) }
+        containerColor = t.colors.panel,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = t.colors.muted) }
     ) {
         Column(
             modifier = Modifier
@@ -223,14 +239,15 @@ private fun NoteEditSheet(
             Text(
                 if (isNew) "Новая заметка" else "Редактировать заметку",
                 style = MaterialTheme.typography.titleLarge,
-                color = TextPrimary,
+                color = t.colors.text,
+                fontFamily = t.display,
                 fontWeight = FontWeight.Bold
             )
 
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Заголовок") },
+                label = { Text("Заголовок", color = t.colors.muted, fontFamily = t.body) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = fieldColors,
                 singleLine = true
@@ -239,7 +256,7 @@ private fun NoteEditSheet(
             OutlinedTextField(
                 value = content,
                 onValueChange = { content = it },
-                label = { Text("Содержание") },
+                label = { Text("Содержание", color = t.colors.muted, fontFamily = t.body) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 120.dp),
@@ -254,17 +271,20 @@ private fun NoteEditSheet(
                 OutlinedButton(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
-                ) { Text("Отмена") }
+                    shape = RoundedCornerShape(t.corner),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.muted),
+                    border = BorderStroke(1.dp, t.colors.line)
+                ) { Text("Отмена", fontFamily = t.display) }
 
                 Button(
                     onClick = { onSave(title, content) },
                     modifier = Modifier.weight(1f),
                     enabled = !isSaving && (title.isNotBlank() || content.isNotBlank()),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
+                    shape = RoundedCornerShape(t.corner),
+                    colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
                 ) {
-                    if (isSaving) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = OnPrimary)
-                    else Text("Сохранить")
+                    if (isSaving) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = t.colors.bg)
+                    else Text("Сохранить", fontFamily = t.display)
                 }
             }
         }

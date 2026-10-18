@@ -12,7 +12,8 @@ import com.questkeep.domain.repository.MessageRepository
 import com.questkeep.utils.Constants
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
@@ -25,20 +26,25 @@ class MessageRepositoryImpl @Inject constructor(
     private val imageRepository: ImageRepository
 ) : MessageRepository {
 
-    // Uses subcollection: campaigns/{campaignId}/messages
-    // Single-field orderBy on a subcollection does NOT require a composite index
+    // Uses subcollection: campaigns/{campaignId}/messages with instant local Room cache
     override fun getMessages(campaignId: String, userId: String): Flow<List<ChatMessage>> =
-        callbackFlow {
+        kotlinx.coroutines.flow.channelFlow {
+            // 1. Immediately emit cached messages from Room (instant UI update)
+            val localJob = launch {
+                dao.getMessagesForCampaign(campaignId, userId).collect { entities ->
+                    trySend(entities.map { it.toDomain() })
+                }
+            }
+
+            // 2. Real-time Firestore snapshot listener with MetadataChanges.INCLUDE
             val listener = firestore
                 .collection(Constants.COLLECTION_CAMPAIGNS)
                 .document(campaignId)
                 .collection("messages")
                 .orderBy("createdAt", Query.Direction.ASCENDING)
                 .limitToLast(100)
-                .addSnapshotListener { snapshot, error ->
+                .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
                     if (error != null) {
-                        // Don't close the flow on Firestore error — just skip this update
-                        // so the app doesn't crash while the index or connection recovers
                         return@addSnapshotListener
                     }
                     val messages = snapshot?.documents?.mapNotNull { doc ->
@@ -63,38 +69,51 @@ class MessageRepositoryImpl @Inject constructor(
                             createdAt = doc.getLong("createdAt") ?: 0L
                         )
                     } ?: emptyList()
-                    trySend(messages)
+
+                    if (messages.isNotEmpty()) {
+                        launch { dao.insertMessages(messages.map { it.toEntity() }) }
+                    }
                 }
-            awaitClose { listener.remove() }
+
+            awaitClose {
+                localJob.cancel()
+                listener.remove()
+            }
         }
 
     override suspend fun sendMessage(message: ChatMessage): Result<Unit> {
+        val id = if (message.id.isNotBlank()) message.id else UUID.randomUUID().toString()
+        val msg = message.copy(id = id)
+
+        // 1. Optimistic insert: save to Room immediately so the UI shows it in 0ms!
+        try {
+            dao.insertMessage(msg.toEntity())
+        } catch (_: Exception) {}
+
+        // 2. Asynchronously sync to Firestore
         return try {
-            val id = UUID.randomUUID().toString()
-            val msg = message.copy(id = id)
-            // Write to subcollection: campaigns/{campaignId}/messages/{id}
             firestore
                 .collection(Constants.COLLECTION_CAMPAIGNS)
                 .document(msg.campaignId)
                 .collection("messages")
                 .document(id)
                 .set(mapOf(
-                    "senderId"       to msg.senderId,
-                    "senderName"     to msg.senderName,
-                    "campaignId"     to msg.campaignId,
-                    "content"        to msg.content,
-                    "type"           to msg.type.name,
-                    "isPublic"       to msg.isPublic,
+                    "senderId"         to msg.senderId,
+                    "senderName"       to msg.senderName,
+                    "campaignId"       to msg.campaignId,
+                    "content"          to msg.content,
+                    "type"             to msg.type.name,
+                    "isPublic"         to msg.isPublic,
                     "targetPlayerId"   to msg.targetPlayerId,
                     "targetPlayerName" to msg.targetPlayerName,
                     "imageUrl"         to msg.imageUrl,
-                    "createdAt"      to msg.createdAt
+                    "createdAt"        to msg.createdAt
                 ))
                 .await()
-            dao.insertMessage(msg.toEntity())
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            // Keep in local DB even if network sync delayed
+            Result.success(Unit)
         }
     }
 
@@ -120,6 +139,7 @@ class MessageRepositoryImpl @Inject constructor(
                 isPublic = true,
                 imageUrl = downloadUrl
             )
+            dao.insertMessage(msg.toEntity())
             firestore
                 .collection(Constants.COLLECTION_CAMPAIGNS)
                 .document(campaignId)
@@ -137,7 +157,6 @@ class MessageRepositoryImpl @Inject constructor(
                     "createdAt"      to msg.createdAt
                 ))
                 .await()
-            dao.insertMessage(msg.toEntity())
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

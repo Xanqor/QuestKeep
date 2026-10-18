@@ -2,7 +2,9 @@ package com.questkeep.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -32,11 +34,11 @@ import com.questkeep.viewmodel.GmNotesUiState
 import com.questkeep.viewmodel.GmNotesViewModel
 
 private fun NoteType.emoji() = when (this) {
-    NoteType.WORLD -> "\uD83C\uDF0D"
-    NoteType.CITY  -> "\uD83C\uDFD9\uFE0F"
-    NoteType.NPC   -> "\uD83D\uDC64"
-    NoteType.PLOT  -> "\uD83D\uDCD6"
-    NoteType.OTHER -> "\uD83D\uDCDD"
+    NoteType.WORLD -> "🌍"
+    NoteType.CITY  -> "🏙️"
+    NoteType.NPC   -> "👤"
+    NoteType.PLOT  -> "📖"
+    NoteType.OTHER -> "📝"
 }
 
 private fun NoteType.label() = when (this) {
@@ -54,6 +56,7 @@ fun GmNotesScreen(
     onBack: () -> Unit,
     viewModel: GmNotesViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     val uiState by viewModel.uiState.collectAsState()
     val editingNote by viewModel.editingNote.collectAsState()
 
@@ -74,49 +77,54 @@ fun GmNotesScreen(
     }
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = t.colors.bg,
         topBar = {
             TopAppBar(
-                title = { Text("Заметки ГМ", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text("Заметки ГМ", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад", tint = TextSecondary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад", tint = t.colors.text)
                     }
                 },
                 actions = {
                     IconButton(onClick = { exportLauncher.launch("notes.json") }) {
-                        Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = TextSecondary)
+                        Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = t.colors.accent)
                     }
                     IconButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
-                        Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = TextSecondary)
+                        Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = t.colors.accent)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = t.colors.panel)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.startCreating() }, containerColor = PrimaryPurple) {
-                Icon(Icons.Filled.Add, contentDescription = "Новая заметка", tint = OnPrimary)
+            FloatingActionButton(
+                onClick = { viewModel.startCreating() },
+                containerColor = t.colors.accent,
+                contentColor = t.colors.bg,
+                shape = RoundedCornerShape(t.corner)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Новая заметка")
             }
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = uiState) {
                 is GmNotesUiState.Loading ->
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = PrimaryPurple)
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = t.colors.accent)
                 is GmNotesUiState.Error ->
-                    Text(state.message, color = AccentRed,
+                    Text(state.message, color = t.colors.hot,
                         modifier = Modifier.align(Alignment.Center).padding(32.dp))
                 is GmNotesUiState.Success -> {
                     if (campaignId == null) {
-                        Text("Кампания не выбрана", color = TextSecondary, modifier = Modifier.align(Alignment.Center))
+                        Text("Кампания не выбрана", color = t.colors.muted, fontFamily = t.body, modifier = Modifier.align(Alignment.Center))
                     } else if (state.notes.isEmpty()) {
                         Column(modifier = Modifier.align(Alignment.Center).padding(32.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Заметок пока нет", color = TextSecondary)
-                            Text("Нажмите + чтобы создать первую", color = TextDisabled,
-                                style = MaterialTheme.typography.bodySmall)
+                            Text("Заметок пока нет", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold)
+                            Text("Нажмите + чтобы создать первую", color = t.colors.muted,
+                                fontFamily = t.body, style = MaterialTheme.typography.bodySmall)
                         }
                     } else {
                         val rootNotes = state.notes.filter { it.parentId == null }
@@ -124,7 +132,7 @@ fun GmNotesScreen(
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 12.dp)
+                            contentPadding = PaddingValues(top = 12.dp, bottom = 100.dp)
                         ) {
                             rootNotes.forEach { root ->
                                 item(key = root.id) {
@@ -166,23 +174,25 @@ private fun GmNoteCard(
     onDelete: () -> Unit,
     onAddChild: (() -> Unit)?
 ) {
+    val t = LocalXanteya.current
     Row(modifier = Modifier.fillMaxWidth()) {
         if (indent > 0) Spacer(Modifier.width((indent * 20).dp))
         Column(modifier = Modifier.weight(1f)
-            .background(DarkCard, RoundedCornerShape(10.dp))
+            .background(t.colors.panel, RoundedCornerShape(t.corner))
+            .border(BorderStroke(1.dp, t.colors.line), RoundedCornerShape(t.corner))
             .padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(note.type.emoji(), fontSize = 16.sp)
-                Text(note.title.ifBlank { "Без названия" }, color = TextPrimary,
-                    fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge,
+                Text(note.title.ifBlank { "Без названия" }, color = t.colors.text,
+                    fontWeight = FontWeight.SemiBold, fontFamily = t.display, style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f))
                 if (note.isRevealedToPlayers)
-                    Text("\uD83D\uDC41\uFE0F", fontSize = 14.sp)
+                    Text("👁️", fontSize = 14.sp)
             }
             if (note.content.isNotBlank()) {
-                Text(note.content, color = TextSecondary, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                Text(note.content, color = t.colors.muted, style = MaterialTheme.typography.bodySmall,
+                    fontFamily = t.body, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp))
             }
             Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
@@ -190,16 +200,16 @@ private fun GmNoteCard(
                 if (onAddChild != null) {
                     TextButton(onClick = onAddChild,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                        Text("+ Дочерняя", color = PrimaryPurpleLight, fontSize = 11.sp)
+                        Text("+ Дочерняя", color = t.colors.accent, fontFamily = t.display, fontSize = 11.sp)
                     }
                 }
                 IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Filled.Edit, contentDescription = "Редактировать",
-                        tint = SecondaryGold, modifier = Modifier.size(16.dp))
+                        tint = t.colors.accent, modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Filled.Delete, contentDescription = "Удалить",
-                        tint = AccentRed, modifier = Modifier.size(16.dp))
+                        tint = t.colors.hot, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -213,23 +223,26 @@ private fun NoteEditorSheet(
     onSave: (GmNote) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val t = LocalXanteya.current
     var title by remember(note.id) { mutableStateOf(note.title) }
     var content by remember(note.id) { mutableStateOf(note.content) }
     var selectedType by remember(note.id) { mutableStateOf(note.type) }
     var revealed by remember(note.id) { mutableStateOf(note.isRevealedToPlayers) }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = PrimaryPurple, unfocusedBorderColor = DarkSurfaceVariant,
-        focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-        focusedLabelColor = PrimaryPurpleLight, unfocusedLabelColor = TextSecondary
+        focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+        focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+        focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted,
+        cursorColor = t.colors.accent, focusedContainerColor = t.colors.bg,
+        unfocusedContainerColor = t.colors.bg
     )
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DarkCard,
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = t.colors.panel,
         dragHandle = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 BottomSheetDefaults.DragHandle()
                 Text(if (note.title.isBlank()) "Новая заметка" else "Редактировать заметку",
-                    color = SecondaryGold, fontWeight = FontWeight.Bold,
+                    color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
             }
@@ -239,28 +252,34 @@ private fun NoteEditorSheet(
             .padding(horizontal = 16.dp).padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(value = title, onValueChange = { title = it },
-                label = { Text("Заголовок") }, singleLine = true,
+                label = { Text("Заголовок", color = t.colors.muted, fontFamily = t.body) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth(), colors = fieldColors)
             OutlinedTextField(value = content, onValueChange = { content = it },
-                label = { Text("Содержание") },
+                label = { Text("Содержание", color = t.colors.muted, fontFamily = t.body) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
                 minLines = 4, colors = fieldColors)
-            Text("Тип", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+            Text("Тип", color = t.colors.muted, fontFamily = t.display, style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 NoteType.entries.forEach { type ->
-                    FilterChip(selected = selectedType == type, onClick = { selectedType = type },
-                        label = { Text("${type.emoji()} ${type.label()}", fontSize = 11.sp) },
+                    FilterChip(
+                        selected = selectedType == type, onClick = { selectedType = type },
+                        label = { Text("${type.emoji()} ${type.label()}", fontSize = 11.sp, fontFamily = t.body) },
+                        shape = RoundedCornerShape(t.corner),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = PrimaryPurpleDark, selectedLabelColor = PrimaryPurpleLight,
-                            containerColor = DarkSurface, labelColor = TextSecondary))
+                            selectedContainerColor = t.colors.accent, selectedLabelColor = t.colors.bg,
+                            containerColor = t.colors.bg, labelColor = t.colors.muted
+                        )
+                    )
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(if (revealed) "Показывается игрокам" else "Скрыто от игроков",
-                    color = if (revealed) AccentGreen else TextSecondary)
-                Switch(checked = revealed, onCheckedChange = { revealed = it },
-                    colors = SwitchDefaults.colors(checkedThumbColor = AccentGreen))
+                    color = if (revealed) t.colors.accent else t.colors.muted, fontFamily = t.body)
+                Switch(
+                    checked = revealed, onCheckedChange = { revealed = it },
+                    colors = SwitchDefaults.colors(checkedThumbColor = t.colors.accent, checkedTrackColor = t.colors.accent.copy(alpha = 0.5f))
+                )
             }
             Button(
                 onClick = {
@@ -268,9 +287,10 @@ private fun NoteEditorSheet(
                         type = selectedType, isRevealedToPlayers = revealed,
                         updatedAt = System.currentTimeMillis()))
                 },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text("Сохранить", fontWeight = FontWeight.Bold) }
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(t.corner),
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+            ) { Text("Сохранить", fontFamily = t.display, fontWeight = FontWeight.Bold) }
         }
     }
 }

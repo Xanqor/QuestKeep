@@ -14,11 +14,12 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val authViewModel: AuthViewModel by viewModels()
+    @javax.inject.Inject lateinit var sessionManager: com.questkeep.data.local.SessionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            QuestKeepTheme {
+            QuestKeepTheme(sessionManager = sessionManager) {
                 val navController = rememberNavController()
                 RootNavGraph(navController = navController, authViewModel = authViewModel)
             }

@@ -2,6 +2,4 @@
 <resources>
 
     <style name="Theme.QuestKeep" parent="android:Theme.Material.Light.NoActionBar" />
-
-    <style name="Theme.QK2" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>

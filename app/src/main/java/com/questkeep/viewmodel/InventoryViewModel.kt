@@ -112,7 +112,7 @@ class InventoryViewModel @Inject constructor(
     fun sendToBank(item: InventoryItem) {
         val uid = authRepository.currentUserId ?: return
         viewModelScope.launch {
-            sharedInventoryRepository.depositItem(
+            val result = sharedInventoryRepository.depositItem(
                 SharedInventoryItem(
                     campaignId = item.campaignId,
                     name = item.name,
@@ -121,7 +121,11 @@ class InventoryViewModel @Inject constructor(
                     depositedBy = uid
                 )
             )
-            inventoryRepository.deleteItem(item.id, item.characterId, item.campaignId)
+            // Never remove the source item before the bank write is confirmed.
+            // This keeps a transient network failure from silently deleting loot.
+            if (result.isSuccess) {
+                inventoryRepository.deleteItem(item.id, item.characterId, item.campaignId)
+            }
         }
     }
 
@@ -135,7 +139,7 @@ class InventoryViewModel @Inject constructor(
         val uid = authRepository.currentUserId ?: return
         val clamped = quantity.coerceAtMost(item.quantity)
         viewModelScope.launch {
-            sharedInventoryRepository.depositItem(
+            val result = sharedInventoryRepository.depositItem(
                 SharedInventoryItem(
                     campaignId = item.campaignId,
                     name = item.name,
@@ -144,6 +148,7 @@ class InventoryViewModel @Inject constructor(
                     depositedBy = uid
                 )
             )
+            if (result.isFailure) return@launch
             if (clamped >= item.quantity) {
                 inventoryRepository.deleteItem(item.id, item.characterId, item.campaignId)
             } else {

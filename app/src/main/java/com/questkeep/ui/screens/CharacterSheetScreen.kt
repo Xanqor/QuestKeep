@@ -2,6 +2,7 @@ package com.questkeep.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -23,11 +24,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -50,6 +53,8 @@ fun CharacterSheetScreen(
     campaignId: String?,
     isGm: Boolean = false,
     onNavigateToBestiary: () -> Unit = {},
+    onOpenDiceRoller: () -> Unit = {},
+    onQuickRoll: (name: String, modifier: Int) -> Unit = { _, _ -> onOpenDiceRoller() },
     viewModel: CharacterSheetViewModel = hiltViewModel(),
     spellViewModel: SpellViewModel = hiltViewModel(),
     playerNpcViewModel: PlayerNpcViewModel = hiltViewModel()
@@ -64,27 +69,28 @@ fun CharacterSheetScreen(
     val playerNpcUiState by playerNpcViewModel.uiState.collectAsState()
     val editingNpc by playerNpcViewModel.editingNpc.collectAsState()
     val deletingNpc by playerNpcViewModel.deletingNpc.collectAsState()
+    val t = LocalXanteya.current
     var selectedTab by rememberSaveable { mutableStateOf(0) }
 
-    Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(t.colors.bg)) {
         if (campaignId == null) {
             CenteredMessage(stringResource(R.string.no_campaign_selected))
         } else {
             Column(modifier = Modifier.fillMaxSize()) {
                 TabRow(
                     selectedTabIndex = selectedTab,
-                    containerColor = DarkSurface,
-                    contentColor = PrimaryPurple
+                    containerColor = t.colors.panel,
+                    contentColor = t.colors.accent
                 ) {
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("👤 Персонаж", color = if (selectedTab == 0) PrimaryPurpleLight else TextSecondary) }
+                        text = { Text("👤 Персонаж", fontFamily = t.display, color = if (selectedTab == 0) t.colors.accent else t.colors.muted) }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("🐉 НПС", color = if (selectedTab == 1) PrimaryPurpleLight else TextSecondary) }
+                        text = { Text("🐉 НПС", fontFamily = t.display, color = if (selectedTab == 1) t.colors.accent else t.colors.muted) }
                     )
                 }
                 when (selectedTab) {
@@ -112,11 +118,18 @@ fun CharacterSheetScreen(
                                 isGm = isGm,
                                 onLongTapHp    = { viewModel.openDamageDialog() },
                                 onLongTapArmor = { viewModel.openArmorDialog()  },
+                                onApplyDamage  = { viewModel.applyDamage(it) },
+                                onApplyHeal    = { viewModel.applyHealing(it) },
+                                onApplyArmorDamage = { viewModel.applyArmorDamage(it) },
+                                onApplyArmorRepair = { viewModel.applyArmorRepair(it) },
                                 onResourceChange    = { name, delta -> viewModel.updateResource(name, delta) },
                                 onInspirationChange = { delta -> viewModel.updateInspirationPoints(delta) },
+                                onSetInspiration    = { viewModel.setInspirationPoints(it) },
                                 onGmEdit    = { viewModel.openGmEditSheet() },
                                 onPlayerEdit = { viewModel.openPlayerEditSheet() },
-                                onGmBack = { if (campaignId != null) viewModel.gmBackToPicker(campaignId) },
+                                onGmBack = { viewModel.gmBackToPicker(campaignId) },
+                                onOpenDiceRoller = onOpenDiceRoller,
+                                onQuickRoll = onQuickRoll,
                                 spellViewModel = spellViewModel
                             )
                             is CharacterSheetUiState.Error -> CenteredMessage(state.message)
@@ -181,18 +194,18 @@ fun CharacterSheetScreen(
     deletingNpc?.let { npc ->
         AlertDialog(
             onDismissRequest = { playerNpcViewModel.cancelDelete() },
-            containerColor = DarkCard,
-            title = { Text("Удалить НПС?", color = TextPrimary) },
-            text = { Text("«${npc.name}» будет удалён из списка НПС.", color = TextSecondary) },
+            containerColor = t.colors.panel,
+            title = { Text("Удалить НПС?", color = t.colors.text, fontFamily = t.display) },
+            text = { Text("«${npc.name}» будет удалён из списка НПС.", color = t.colors.muted, fontFamily = t.body) },
             confirmButton = {
                 Button(
                     onClick = { playerNpcViewModel.confirmDelete() },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
-                ) { Text("Удалить") }
+                ) { Text("Удалить", fontFamily = t.display) }
             },
             dismissButton = {
                 TextButton(onClick = { playerNpcViewModel.cancelDelete() }) {
-                    Text(stringResource(R.string.cancel), color = TextSecondary)
+                    Text(stringResource(R.string.cancel), color = t.colors.muted, fontFamily = t.body)
                 }
             }
         )
@@ -205,18 +218,19 @@ private fun GmCharacterPicker(
     characters: List<Character>,
     onSelectCharacter: (Character) -> Unit
 ) {
+    val t = LocalXanteya.current
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(stringResource(R.string.gm_select_character),
             style = MaterialTheme.typography.titleLarge,
-            color = TextPrimary, fontWeight = FontWeight.Bold)
+            color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text(stringResource(R.string.gm_edit_character),
-            style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            style = MaterialTheme.typography.bodySmall, color = t.colors.muted, fontFamily = t.body)
         Spacer(Modifier.height(16.dp))
         if (characters.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.gm_no_characters),
-                    color = TextSecondary, textAlign = TextAlign.Center,
+                    color = t.colors.muted, textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(32.dp))
             }
@@ -224,30 +238,36 @@ private fun GmCharacterPicker(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(characters) { character ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .background(DarkCard, RoundedCornerShape(12.dp))
-                            .clickable { onSelectCharacter(character) }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectCharacter(character) },
+                        shape = RoundedCornerShape(t.corner),
+                        color = t.colors.panel,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
                     ) {
-                        Box(modifier = Modifier.size(48.dp)
-                            .background(Color(0xFF1A0A2E), RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center) {
-                            Text(character.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                                color = PrimaryPurpleLight, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Box(modifier = Modifier.size(48.dp)
+                                .background(t.colors.bg, RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center) {
+                                Text(character.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                                    color = t.colors.accent, fontFamily = t.display, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(character.name, color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.titleMedium)
+                                Text("${character.className} · Ур. ${character.level}",
+                                    color = t.colors.muted, fontFamily = t.body, style = MaterialTheme.typography.bodySmall)
+                                Text("HP: ${character.currentHp}/${character.maxHp}  🛡 ${character.armor}/${character.maxArmor}",
+                                    color = t.colors.muted.copy(alpha = 0.7f), fontFamily = t.body, style = MaterialTheme.typography.labelSmall)
+                            }
+                            Icon(Icons.Filled.Edit, contentDescription = null,
+                                tint = t.colors.accent, modifier = Modifier.size(20.dp))
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text(character.name, color = TextPrimary, fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.titleMedium)
-                            Text("${character.className} · Ур. ${character.level}",
-                                color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                            Text("HP: ${character.currentHp}/${character.maxHp}  🛡 ${character.armor}/${character.maxArmor}",
-                                color = TextDisabled, style = MaterialTheme.typography.labelSmall)
-                        }
-                        Icon(Icons.Filled.Edit, contentDescription = null,
-                            tint = PrimaryPurpleLight, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -259,15 +279,18 @@ private fun GmCharacterPicker(
 
 @Composable
 private fun GmRoleHint() {
+    val t = LocalXanteya.current
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(32.dp)) {
             Icon(Icons.Filled.Shield, contentDescription = null,
-                tint = SecondaryGold, modifier = Modifier.size(48.dp))
-            Text(stringResource(R.string.gm_role), color = SecondaryGold,
+                tint = t.colors.accent, modifier = Modifier.size(48.dp))
+            Text(stringResource(R.string.gm_role), color = t.colors.accent,
+                fontFamily = t.display,
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.gm_role_hint), color = TextSecondary,
+            Text(stringResource(R.string.gm_role_hint), color = t.colors.muted,
+                fontFamily = t.body,
                 style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         }
     }
@@ -281,47 +304,132 @@ private fun CharacterSheetWithTabs(
     isGm: Boolean,
     onLongTapHp: () -> Unit,
     onLongTapArmor: () -> Unit,
+    onApplyDamage: (Int) -> Unit,
+    onApplyHeal: (Int) -> Unit,
+    onApplyArmorDamage: (Int) -> Unit,
+    onApplyArmorRepair: (Int) -> Unit,
     onResourceChange: (String, Float) -> Unit,
     onInspirationChange: (Int) -> Unit,
+    onSetInspiration: (Int) -> Unit,
     onGmEdit: () -> Unit,
     onPlayerEdit: () -> Unit,
     onGmBack: () -> Unit,
+    onOpenDiceRoller: () -> Unit = {},
+    onQuickRoll: (name: String, modifier: Int) -> Unit = { _, _ -> onOpenDiceRoller() },
     spellViewModel: SpellViewModel,
     inventoryViewModel: InventoryViewModel = hiltViewModel(),
     itemCardViewModel: ItemCardViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     var selectedTab by remember { mutableIntStateOf(0) }
-    Column(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = DarkBackground,
-            contentColor = PrimaryPurpleLight
-        ) {
-            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
-                text = { Text("⚔ Персонаж", fontSize = 13.sp) })
-            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                text = { Text("✨ Магия", fontSize = 13.sp) })
-            Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
-                text = { Text("\uD83D\uDCE6 Инвентарь", fontSize = 13.sp) })
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    if (isLandscape) {
+        Row(modifier = Modifier.fillMaxSize().background(t.colors.bg)) {
+            // Left Column: Core Character Sheet (Master: Name, Class, HP, Armor, Attributes, Inspiration)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(t.colors.bg)
+            ) {
+                CharacterSheet(
+                    character = character, isGm = isGm,
+                    onLongTapHp = onLongTapHp, onLongTapArmor = onLongTapArmor,
+                    onApplyDamage = onApplyDamage, onApplyHeal = onApplyHeal,
+                    onApplyArmorDamage = onApplyArmorDamage, onApplyArmorRepair = onApplyArmorRepair,
+                    onResourceChange = onResourceChange, onInspirationChange = onInspirationChange,
+                    onSetInspiration = onSetInspiration,
+                    onGmEdit = onGmEdit, onPlayerEdit = onPlayerEdit, onGmBack = onGmBack,
+                    onOpenDiceRoller = onOpenDiceRoller,
+                    onQuickRoll = onQuickRoll
+                )
+            }
+
+            // Divider between columns
+            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(t.colors.line))
+
+            // Right Column: Detail Tabs (MagicTab / InventoryTabContent)
+            Column(
+                modifier = Modifier
+                    .weight(1.25f)
+                    .fillMaxHeight()
+                    .background(t.colors.bg)
+            ) {
+                TabRow(
+                    selectedTabIndex = if (selectedTab == 0) 0 else (selectedTab - 1),
+                    containerColor = t.colors.panel,
+                    contentColor = t.colors.accent
+                ) {
+                    Tab(
+                        selected = selectedTab <= 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("✨ Магия Ксантеи", fontFamily = t.display, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (selectedTab <= 1) t.colors.accent else t.colors.muted) }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("📦 Инвентарь и Казна", fontFamily = t.display, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (selectedTab == 2) t.colors.accent else t.colors.muted) }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f).fillMaxWidth().background(t.colors.bg)) {
+                    when (if (selectedTab == 0) 1 else selectedTab) {
+                        1 -> MagicTab(
+                            character = character,
+                            spellViewModel = spellViewModel
+                        )
+                        2 -> InventoryTabContent(
+                            character = character,
+                            campaignId = campaignId,
+                            isGm = isGm,
+                            inventoryViewModel = inventoryViewModel,
+                            itemCardViewModel = itemCardViewModel
+                        )
+                    }
+                }
+            }
         }
-        when (selectedTab) {
-            0 -> CharacterSheet(
-                character = character, isGm = isGm,
-                onLongTapHp = onLongTapHp, onLongTapArmor = onLongTapArmor,
-                onResourceChange = onResourceChange, onInspirationChange = onInspirationChange,
-                onGmEdit = onGmEdit, onPlayerEdit = onPlayerEdit, onGmBack = onGmBack
-            )
-            1 -> MagicTab(
-                character = character,
-                spellViewModel = spellViewModel
-            )
-            2 -> InventoryTabContent(
-                character = character,
-                campaignId = campaignId,
-                isGm = isGm,
-                inventoryViewModel = inventoryViewModel,
-                itemCardViewModel = itemCardViewModel
-            )
+    } else {
+        Column(modifier = Modifier.fillMaxSize().background(t.colors.bg)) {
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = t.colors.panel,
+                contentColor = t.colors.accent
+            ) {
+                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
+                    text = { Text("⚔ Персонаж", fontFamily = t.display, fontSize = 13.sp, color = if (selectedTab == 0) t.colors.accent else t.colors.muted) })
+                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
+                    text = { Text("✨ Магия", fontFamily = t.display, fontSize = 13.sp, color = if (selectedTab == 1) t.colors.accent else t.colors.muted) })
+                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
+                    text = { Text("\uD83D\uDCE6 Инвентарь", fontFamily = t.display, fontSize = 13.sp, color = if (selectedTab == 2) t.colors.accent else t.colors.muted) })
+            }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth().background(t.colors.bg)) {
+                when (selectedTab) {
+                    0 -> CharacterSheet(
+                        character = character, isGm = isGm,
+                        onLongTapHp = onLongTapHp, onLongTapArmor = onLongTapArmor,
+                        onApplyDamage = onApplyDamage, onApplyHeal = onApplyHeal,
+                        onApplyArmorDamage = onApplyArmorDamage, onApplyArmorRepair = onApplyArmorRepair,
+                        onResourceChange = onResourceChange, onInspirationChange = onInspirationChange,
+                        onSetInspiration = onSetInspiration,
+                        onGmEdit = onGmEdit, onPlayerEdit = onPlayerEdit, onGmBack = onGmBack,
+                        onOpenDiceRoller = onOpenDiceRoller,
+                        onQuickRoll = onQuickRoll
+                    )
+                    1 -> MagicTab(
+                        character = character,
+                        spellViewModel = spellViewModel
+                    )
+                    2 -> InventoryTabContent(
+                        character = character,
+                        campaignId = campaignId,
+                        isGm = isGm,
+                        inventoryViewModel = inventoryViewModel,
+                        itemCardViewModel = itemCardViewModel
+                    )
+                }
+            }
         }
     }
 }
@@ -336,6 +444,7 @@ private fun InventoryTabContent(
     inventoryViewModel: InventoryViewModel,
     itemCardViewModel: ItemCardViewModel
 ) {
+    val t = LocalXanteya.current
     val items by inventoryViewModel.items.collectAsState()
     val char by inventoryViewModel.character.collectAsState()
     val itemCards by itemCardViewModel.itemCards.collectAsState()
@@ -372,7 +481,8 @@ private fun InventoryTabContent(
             item {
                 Text(
                     "Предметы (${items.size})",
-                    color = TextSecondary,
+                    color = t.colors.muted,
+                    fontFamily = t.display,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(top = 8.dp)
                 )
@@ -386,7 +496,8 @@ private fun InventoryTabContent(
                     ) {
                         Text(
                             if (isGm) "Инвентарь пуст" else "Инвентарь пуст.\nНажмите + чтобы добавить предмет",
-                            color = TextDisabled,
+                            color = t.colors.muted,
+                            fontFamily = t.body,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center
                         )
@@ -413,23 +524,25 @@ private fun InventoryTabContent(
             // Player FAB — add new item
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = PrimaryPurple,
+                containerColor = t.colors.accent,
+                contentColor = t.colors.bg,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Добавить предмет", tint = OnPrimary)
+                Icon(Icons.Filled.Add, contentDescription = "Добавить предмет")
             }
         } else {
             // GM FAB — give item from library
             FloatingActionButton(
                 onClick = { showLibrarySheet = true },
-                containerColor = SecondaryGold,
+                containerColor = t.colors.accent,
+                contentColor = t.colors.bg,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)
             ) {
-                Icon(Icons.Filled.Shield, contentDescription = "Библиотека предметов", tint = OnSecondary)
+                Icon(Icons.Filled.Shield, contentDescription = "Библиотека предметов")
             }
         }
     }
@@ -481,30 +594,36 @@ private fun GiveFromInventoryDialog(
     onDismiss: () -> Unit,
     onConfirm: (quantity: Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     var quantityText by remember { mutableStateOf("1") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Выдать «$cardName»", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        title = { Text("Выдать «$cardName»", color = t.colors.text, fontFamily = t.display) },
         text = {
             OutlinedTextField(
                 value = quantityText,
                 onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 3) quantityText = it },
-                label = { Text("Количество") },
+                label = { Text("Количество", color = t.colors.muted, fontFamily = t.body) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                colors = inventoryFieldColors()
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = t.colors.accent,
+                    unfocusedBorderColor = t.colors.line,
+                    focusedTextColor = t.colors.text,
+                    unfocusedTextColor = t.colors.text
+                )
             )
         },
         confirmButton = {
             Button(
                 onClick = { onConfirm(quantityText.toIntOrNull()?.coerceAtLeast(1) ?: 1) },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text("Выдать") }
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+            ) { Text("Выдать", fontFamily = t.display) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
@@ -518,15 +637,17 @@ private fun ItemLibrarySheet(
     onDismiss: () -> Unit,
     onGiveItem: (ItemCard) -> Unit
 ) {
+    val t = LocalXanteya.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
+        containerColor = t.colors.panel,
         dragHandle = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 BottomSheetDefaults.DragHandle()
                 Text(
                     "\uD83D\uDDE1 Библиотека предметов",
-                    color = SecondaryGoldLight,
+                    color = t.colors.accent,
+                    fontFamily = t.display,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 12.dp)
@@ -543,7 +664,8 @@ private fun ItemLibrarySheet(
             ) {
                 Text(
                     "Библиотека пуста.\nСоздайте карточки предметов в разделе ГМ.",
-                    color = TextDisabled,
+                    color = t.colors.muted,
+                    fontFamily = t.body,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
@@ -559,8 +681,9 @@ private fun ItemLibrarySheet(
                 items(itemCards, key = { it.id }) { card ->
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = DarkSurface
+                        shape = RoundedCornerShape(t.corner),
+                        color = t.colors.bg,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -569,13 +692,15 @@ private fun ItemLibrarySheet(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    card.name, color = TextPrimary,
+                                    card.name, color = t.colors.text,
+                                    fontFamily = t.display,
                                     fontWeight = FontWeight.SemiBold,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 if (card.description.isNotBlank()) {
                                     Text(
-                                        card.description, color = TextSecondary,
+                                        card.description, color = t.colors.muted,
+                                        fontFamily = t.body,
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = 2
                                     )
@@ -583,10 +708,10 @@ private fun ItemLibrarySheet(
                             }
                             Button(
                                 onClick = { onGiveItem(card); onDismiss() },
-                                colors = ButtonDefaults.buttonColors(containerColor = SecondaryGold),
+                                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg),
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                             ) {
-                                Text("Выдать", color = OnSecondary,
+                                Text("Выдать", fontFamily = t.display,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold)
                             }
@@ -607,120 +732,690 @@ private fun CharacterSheet(
     isGm: Boolean,
     onLongTapHp: () -> Unit,
     onLongTapArmor: () -> Unit,
+    onApplyDamage: (Int) -> Unit,
+    onApplyHeal: (Int) -> Unit,
+    onApplyArmorDamage: (Int) -> Unit,
+    onApplyArmorRepair: (Int) -> Unit,
     onResourceChange: (String, Float) -> Unit,
     onInspirationChange: (Int) -> Unit,
+    onSetInspiration: (Int) -> Unit,
     onGmEdit: () -> Unit,
     onPlayerEdit: () -> Unit,
-    onGmBack: () -> Unit
+    onGmBack: () -> Unit,
+    onOpenDiceRoller: () -> Unit = {},
+    onQuickRoll: (name: String, modifier: Int) -> Unit = { _, _ -> onOpenDiceRoller() }
 ) {
+    val t = LocalXanteya.current
+
+    when (t.id) {
+        "falloran" -> FalloranSheetContent(
+            character = character, isGm = isGm,
+            onLongTapHp = onLongTapHp, onLongTapArmor = onLongTapArmor,
+            onApplyDamage = onApplyDamage, onApplyHeal = onApplyHeal,
+            onApplyArmorDamage = onApplyArmorDamage, onApplyArmorRepair = onApplyArmorRepair,
+            onResourceChange = onResourceChange, onInspirationChange = onInspirationChange,
+            onSetInspiration = onSetInspiration,
+            onGmEdit = onGmEdit, onPlayerEdit = onPlayerEdit, onGmBack = onGmBack,
+            onOpenDiceRoller = onOpenDiceRoller,
+            onQuickRoll = onQuickRoll
+        )
+        "nirventhal" -> NirventhalSheetContent(
+            character = character, isGm = isGm,
+            onLongTapHp = onLongTapHp, onLongTapArmor = onLongTapArmor,
+            onApplyDamage = onApplyDamage, onApplyHeal = onApplyHeal,
+            onApplyArmorDamage = onApplyArmorDamage, onApplyArmorRepair = onApplyArmorRepair,
+            onResourceChange = onResourceChange, onInspirationChange = onInspirationChange,
+            onSetInspiration = onSetInspiration,
+            onGmEdit = onGmEdit, onPlayerEdit = onPlayerEdit, onGmBack = onGmBack,
+            onOpenDiceRoller = onOpenDiceRoller,
+            onQuickRoll = onQuickRoll
+        )
+        "tsingate" -> TsingateSheetContent(
+            character = character, isGm = isGm,
+            onLongTapHp = onLongTapHp, onLongTapArmor = onLongTapArmor,
+            onApplyDamage = onApplyDamage, onApplyHeal = onApplyHeal,
+            onApplyArmorDamage = onApplyArmorDamage, onApplyArmorRepair = onApplyArmorRepair,
+            onResourceChange = onResourceChange, onInspirationChange = onInspirationChange,
+            onSetInspiration = onSetInspiration,
+            onGmEdit = onGmEdit, onPlayerEdit = onPlayerEdit, onGmBack = onGmBack,
+            onOpenDiceRoller = onOpenDiceRoller,
+            onQuickRoll = onQuickRoll
+        )
+        else -> XanteyaSheetContent(
+            character = character, isGm = isGm,
+            onLongTapHp = onLongTapHp, onLongTapArmor = onLongTapArmor,
+            onApplyDamage = onApplyDamage, onApplyHeal = onApplyHeal,
+            onApplyArmorDamage = onApplyArmorDamage, onApplyArmorRepair = onApplyArmorRepair,
+            onResourceChange = onResourceChange, onInspirationChange = onInspirationChange,
+            onSetInspiration = onSetInspiration,
+            onGmEdit = onGmEdit, onPlayerEdit = onPlayerEdit, onGmBack = onGmBack,
+            onOpenDiceRoller = onOpenDiceRoller,
+            onQuickRoll = onQuickRoll
+        )
+    }
+}
+
+@Composable
+private fun FalloranSheetContent(
+    character: Character,
+    isGm: Boolean,
+    onLongTapHp: () -> Unit,
+    onLongTapArmor: () -> Unit,
+    onApplyDamage: (Int) -> Unit,
+    onApplyHeal: (Int) -> Unit,
+    onApplyArmorDamage: (Int) -> Unit,
+    onApplyArmorRepair: (Int) -> Unit,
+    onResourceChange: (String, Float) -> Unit,
+    onInspirationChange: (Int) -> Unit,
+    onSetInspiration: (Int) -> Unit,
+    onGmEdit: () -> Unit,
+    onPlayerEdit: () -> Unit,
+    onGmBack: () -> Unit,
+    onOpenDiceRoller: () -> Unit,
+    onQuickRoll: (name: String, modifier: Int) -> Unit = { _, _ -> }
+) {
+    val t = LocalXanteya.current
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(),
+        HazardStripes(modifier = Modifier.fillMaxWidth().height(14.dp))
+
+        // Header with pass title and character name
+        Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            if (isGm) {
-                IconButton(onClick = onGmBack, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextSecondary)
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
+                if (isGm) {
+                    IconButton(onClick = onGmBack, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = t.colors.accent)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                }
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        text = "ПРОПУСК ЦМК № 372-04 · ЦЕХ 4",
+                        fontFamily = SpecialEliteFamily,
+                        fontSize = 11.sp,
+                        color = t.colors.accent,
+                        letterSpacing = 1.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = character.name.ifBlank { "РЕЙН ВАЛЬДЕР" }.uppercase(),
+                        fontFamily = RussoOneFamily,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = t.colors.text,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(character.name, style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimary, fontWeight = FontWeight.Bold)
-                    val roleLabel = if (isGm) stringResource(R.string.gm_role) else stringResource(R.string.player_role)
-                    val roleBg    = if (isGm) Color(0xFF3A2A00) else Color(0xFF1A0A2E)
-                    val roleColor = if (isGm) SecondaryGold     else PrimaryPurpleLight
-                    Row(modifier = Modifier.background(roleBg, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Icon(if (isGm) Icons.Filled.Shield else Icons.Filled.Person,
-                            contentDescription = null, tint = roleColor, modifier = Modifier.size(12.dp))
-                        Text(roleLabel, fontSize = 11.sp, color = roleColor, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                ThemeSwitcherPill()
+                IconButton(
+                    onClick = if (isGm) onGmEdit else onPlayerEdit,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Редактировать", tint = t.colors.accent, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+
+        // Gauges: Здоровье & Броня (Прочность + Блок)
+        FalloranSegmentedGauge(
+            label = "ЗДОРОВЬЕ",
+            current = character.currentHp,
+            max = character.maxHp,
+            barColor = Color(0xFFD9342B),
+            onTap = onLongTapHp
+        )
+        FalloranSegmentedGauge(
+            label = "БРОНЯ (ПРОЧНОСТЬ)" + if (character.armorBlock > 0) " · БЛОК ${character.armorBlock}" else "",
+            current = character.armor,
+            max = character.maxArmor,
+            barColor = Color(0xFFC0703A),
+            onTap = onLongTapArmor
+        )
+
+        // 6 Riveted Plates (3x2) with Quick Roll
+        FalloranRivetedStatsGrid(
+            character = character,
+            onStatClick = { name, value -> onQuickRoll(name, value) }
+        )
+
+        // Roll result hero: Big red 17
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "17",
+                fontFamily = RussoOneFamily,
+                fontSize = 54.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD9342B)
+            )
+            Column {
+                Text(
+                    text = "d20 (14) + ЛОВ 3 · Скрытность",
+                    fontFamily = SpecialEliteFamily,
+                    fontSize = 13.sp,
+                    color = t.colors.muted
+                )
+            }
+        }
+
+        // 6 Hexagon Nuts Dice Row
+        val dice = listOf(4, 6, 8, 10, 12, 20)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            dice.forEach { sides ->
+                FalloranDieButton(
+                    n = sides,
+                    active = sides == 20,
+                    onClick = onOpenDiceRoller
+                )
+            }
+        }
+
+        // Order card
+        RecentActionStampCard(
+            title = "ПОСЛЕДНЯЯ ЗАЯВКА",
+            actionText = "Кристальный разряд · 2d6+ВОЛ",
+            stampText = "ОДОБРЕНО"
+        )
+
+        // Telegram card
+        TelegramCard(
+            author = "ГМ",
+            text = "Стража на мосту. Видишь фонарь?"
+        )
+
+        Spacer(Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun NirventhalSheetContent(
+    character: Character,
+    isGm: Boolean,
+    onLongTapHp: () -> Unit,
+    onLongTapArmor: () -> Unit,
+    onApplyDamage: (Int) -> Unit,
+    onApplyHeal: (Int) -> Unit,
+    onApplyArmorDamage: (Int) -> Unit,
+    onApplyArmorRepair: (Int) -> Unit,
+    onResourceChange: (String, Float) -> Unit,
+    onInspirationChange: (Int) -> Unit,
+    onSetInspiration: (Int) -> Unit,
+    onGmEdit: () -> Unit,
+    onPlayerEdit: () -> Unit,
+    onGmBack: () -> Unit,
+    onOpenDiceRoller: () -> Unit,
+    onQuickRoll: (name: String, modifier: Int) -> Unit = { _, _ -> }
+) {
+    val t = LocalXanteya.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Organic Header Card
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = OrganicPanel,
+            color = t.colors.panel,
+            border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                TreeSpiralIcon(modifier = Modifier.size(54.dp))
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        text = "НИРВЕНТАЛЬ · 372 г. ПВС",
+                        fontFamily = CormorantGaramondFamily,
+                        fontSize = 11.sp,
+                        color = t.colors.muted,
+                        letterSpacing = 1.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = character.name.ifBlank { "Рейн Вальдер" },
+                        fontFamily = PhilosopherFamily,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = t.colors.text,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Увядание II/V",
+                            fontFamily = CormorantGaramondFamily,
+                            fontSize = 12.sp,
+                            color = t.colors.muted
+                        )
+                        WitheringLeaves(stage = 2, max = 5)
                     }
                 }
-                Text("${character.className} · Ур. ${character.level}",
-                    style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ThemeSwitcherPill()
+                    IconButton(onClick = if (isGm) onGmEdit else onPlayerEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, tint = t.colors.accent, modifier = Modifier.size(16.dp))
+                    }
+                }
             }
+        }
+
+        // Dual smooth bars: Здоровье & Броня (Прочность + Блок)
+        NirventhalLeafGauge(
+            label = "Здоровье",
+            current = character.currentHp,
+            max = character.maxHp,
+            barColor = Color(0xFF6A9A80),
+            onTap = onLongTapHp
+        )
+        NirventhalLeafGauge(
+            label = "Броня (прочность)" + if (character.armorBlock > 0) " · Блок: ${character.armorBlock}" else "",
+            current = character.armor,
+            max = character.maxArmor,
+            barColor = Color(0xFFB58943),
+            onTap = onLongTapArmor
+        )
+
+        // Runic stats panel with Quick Roll
+        NirventhalRunicStatsPanel(
+            character = character,
+            onStatClick = { name, value -> onQuickRoll(name, value) }
+        )
+
+        // Glowing purple 17 roll hero
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "17",
+                fontFamily = PhilosopherFamily,
+                fontSize = 54.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFA87BE0)
+            )
+            Column {
+                Text(
+                    text = "d20 (14) + ЛОВ 3 · Скрытность",
+                    fontFamily = CormorantGaramondFamily,
+                    fontSize = 14.sp,
+                    color = t.colors.muted
+                )
+            }
+        }
+
+        // Tree ring dice row
+        TreeRingDieRow(
+            selectedDie = 20,
+            onDieClick = { onOpenDiceRoller() }
+        )
+
+        // Whisper roots card
+        WhisperRootsCard(text = "Корни шепчут. Кора под рукой тёплая.")
+
+        Spacer(Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun XanteyaSheetContent(
+    character: Character,
+    isGm: Boolean,
+    onLongTapHp: () -> Unit,
+    onLongTapArmor: () -> Unit,
+    onApplyDamage: (Int) -> Unit,
+    onApplyHeal: (Int) -> Unit,
+    onApplyArmorDamage: (Int) -> Unit,
+    onApplyArmorRepair: (Int) -> Unit,
+    onResourceChange: (String, Float) -> Unit,
+    onInspirationChange: (Int) -> Unit,
+    onSetInspiration: (Int) -> Unit,
+    onGmEdit: () -> Unit,
+    onPlayerEdit: () -> Unit,
+    onGmBack: () -> Unit,
+    onOpenDiceRoller: () -> Unit,
+    onQuickRoll: (name: String, modifier: Int) -> Unit = { _, _ -> }
+) {
+    val t = LocalXanteya.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Theme switcher & Edit row at top right
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             if (isGm) {
-                FilledTonalButton(
-                    onClick = onGmEdit,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFF3A2A00), contentColor = SecondaryGold),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.edit_all_fields), fontSize = 12.sp)
+                IconButton(onClick = onGmBack, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = t.colors.accent)
                 }
             } else {
-                // Player can edit their own stats
-                FilledTonalButton(
-                    onClick = onPlayerEdit,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFF1A0A2E), contentColor = PrimaryPurpleLight),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Изменить", fontSize = 12.sp)
+                Spacer(Modifier.width(1.dp))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                ThemeSwitcherPill()
+                IconButton(onClick = if (isGm) onGmEdit else onPlayerEdit, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Edit, contentDescription = null, tint = t.colors.accent, modifier = Modifier.size(16.dp))
                 }
             }
         }
-        HorizontalDivider(color = DarkSurfaceVariant)
-        Box(modifier = Modifier.combinedClickable(onLongClick = onLongTapHp, onClick = {})) {
-            HpBar(current = character.currentHp, max = character.maxHp,
-                modifier = Modifier.fillMaxWidth())
-        }
-        if (character.maxArmor > 0) {
-            Box(modifier = Modifier.combinedClickable(onLongClick = onLongTapArmor, onClick = {})) {
-                ArmorBar(current = character.armor, max = character.maxArmor,
-                    modifier = Modifier.fillMaxWidth())
-            }
-        }
-        Text(stringResource(R.string.main_stats),
-            style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-        val stats = listOf(
-            stringResource(R.string.stat_wellbeing)     to character.wellbeing,
-            stringResource(R.string.stat_movement)      to character.movement,
-            stringResource(R.string.stat_combat)        to character.combat,
-            stringResource(R.string.stat_thinking)      to character.thinking,
-            stringResource(R.string.stat_attention)     to character.attention,
-            stringResource(R.string.stat_communication) to character.communication
+
+        // Sky arc with 2 suns & 2 moons
+        CelestialSkyArc(modifier = Modifier.fillMaxWidth().height(40.dp))
+
+        // Title in Forum
+        Text(
+            text = "К С А Н Т Е Я",
+            fontFamily = ForumFamily,
+            fontSize = 28.sp,
+            letterSpacing = 8.sp,
+            fontWeight = FontWeight.Bold,
+            color = t.colors.hot
         )
-        LazyStatsGrid(stats)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCard(stringResource(R.string.dmg),        character.damage,     Modifier.weight(1f))
-            StatCard(stringResource(R.string.dodge),      character.dodge,      Modifier.weight(1f))
-            StatCard(stringResource(R.string.initiative), character.initiative, Modifier.weight(1f))
-        }
-        HorizontalDivider(color = DarkSurfaceVariant)
-        Text(stringResource(R.string.magic_resources),
-            style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-        ResourceBar("Куар",   character.quarResource,   character.maxQuarResource,   ResourceQuarColor,   Modifier.fillMaxWidth())
-        ResourceBar("Омбра",  character.ombraResource,  character.maxOmbraResource,  ResourceOmbraColor,  Modifier.fillMaxWidth())
-        ResourceBar("Веруна", character.verunaResource, character.maxVerunaResource, ResourceVerunaColor, Modifier.fillMaxWidth())
-        ResourceBar("Сумени", character.sumeniResource, character.maxSumeniResource, ResourceSumeniColor, Modifier.fillMaxWidth())
-        Row(modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.inspiration),
-                style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { onInspirationChange(-1) }, modifier = Modifier.size(32.dp)) {
-                    Text("−", color = AccentRed, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text(
+            text = "СЕЗОН КАСПА · ДЕНЬ 12 ИЗ 55",
+            fontFamily = JuraFamily,
+            fontSize = 11.sp,
+            letterSpacing = 2.sp,
+            color = t.colors.muted
+        )
+
+        // Astrolabe Dial Hero with 17
+        AstrolabeDialHero(
+            centerValue = 17,
+            modifier = Modifier.clickable { onOpenDiceRoller() }
+        )
+
+        // Celestial circular dice row
+        AtmosphericDiceRow(
+            selectedDie = 20,
+            onDieClick = { onOpenDiceRoller() }
+        )
+
+        // Character panel with Restored Health & Armor gauges + Cyan stat bars
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = t.colors.panel,
+            border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    EtherCrystalIcon(modifier = Modifier.size(38.dp, 52.dp))
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
+                        Text(
+                            text = character.name.ifBlank { "Рейн Вальдер" },
+                            fontFamily = ForumFamily,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = t.colors.text,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${character.className.ifBlank { "Странник" }} · Уровень ${character.level}",
+                            fontFamily = JuraFamily,
+                            fontSize = 12.sp,
+                            color = t.colors.muted,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-                InspirationDots(current = character.inspirationPoints)
-                IconButton(onClick = { onInspirationChange(1) }, modifier = Modifier.size(32.dp)) {
-                    Text("+", color = AccentGreen, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+
+                // Celestial Health & Armor gauges
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Health Gauge
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(t.colors.bg)
+                            .border(1.dp, t.colors.line, RoundedCornerShape(10.dp))
+                            .clickable(onClick = onLongTapHp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("ЗДОРОВЬЕ", fontFamily = JuraFamily, fontSize = 10.sp, color = t.colors.muted)
+                                Text("${character.currentHp}/${character.maxHp}", fontFamily = ForumFamily, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = t.colors.text)
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(t.colors.panel)
+                            ) {
+                                val fraction = if (character.maxHp > 0) (character.currentHp.toFloat() / character.maxHp).coerceIn(0f, 1f) else 0f
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(fraction)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(Color(0xFFE05A47))
+                                )
+                            }
+                        }
+                    }
+
+                    // Armor Gauge (Прочность + Блок)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(t.colors.bg)
+                            .border(1.dp, t.colors.line, RoundedCornerShape(10.dp))
+                            .clickable(onClick = onLongTapArmor)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("БРОНЯ" + if (character.armorBlock > 0) " (${character.armorBlock})" else "", fontFamily = JuraFamily, fontSize = 10.sp, color = t.colors.muted)
+                                Text("${character.armor}/${character.maxArmor}", fontFamily = ForumFamily, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = t.colors.text)
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(t.colors.panel)
+                            ) {
+                                val fraction = if (character.maxArmor > 0) (character.armor.toFloat() / character.maxArmor).coerceIn(0f, 1f) else 0f
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(fraction)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(Color(0xFF4AC6C9))
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = t.colors.line.copy(alpha = 0.5f))
+                XanteyaStatsBarPanel(
+                    character = character,
+                    onStatClick = { name, value -> onQuickRoll(name, value) }
+                )
+            }
+        }
+
+        // Chronicle card
+        ChronicleCard()
+
+        Spacer(Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun TsingateSheetContent(
+    character: Character,
+    isGm: Boolean,
+    onLongTapHp: () -> Unit,
+    onLongTapArmor: () -> Unit,
+    onApplyDamage: (Int) -> Unit,
+    onApplyHeal: (Int) -> Unit,
+    onApplyArmorDamage: (Int) -> Unit,
+    onApplyArmorRepair: (Int) -> Unit,
+    onResourceChange: (String, Float) -> Unit,
+    onInspirationChange: (Int) -> Unit,
+    onSetInspiration: (Int) -> Unit,
+    onGmEdit: () -> Unit,
+    onPlayerEdit: () -> Unit,
+    onGmBack: () -> Unit,
+    onOpenDiceRoller: () -> Unit,
+    onQuickRoll: (name: String, modifier: Int) -> Unit = { _, _ -> }
+) {
+    val t = LocalXanteya.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Nautical Header
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = CutCornerShape,
+            color = t.colors.panel,
+            border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        text = "СУДОВОЙ РЕЕСТР · ПОРТ ЦИНГЕЙТ",
+                        fontFamily = PtSerifFamily,
+                        fontSize = 11.sp,
+                        color = t.colors.accent,
+                        letterSpacing = 1.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = character.name.ifBlank { "Рейн Вальдер" },
+                        fontFamily = RuslanDisplayFamily,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = t.colors.text,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ThemeSwitcherPill()
+                    IconButton(onClick = if (isGm) onGmEdit else onPlayerEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, tint = t.colors.accent, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }
+
+        // Gauges: Корпус (HP) & Обшивка (Броня)
+        FalloranSegmentedGauge(
+            label = "КОРПУС (HP)",
+            current = character.currentHp,
+            max = character.maxHp,
+            barColor = Color(0xFFC9A14A),
+            onTap = onLongTapHp
+        )
+        FalloranSegmentedGauge(
+            label = "ОБШИВКА (БРОНЯ)" + if (character.armorBlock > 0) " · БЛОК ${character.armorBlock}" else "",
+            current = character.armor,
+            max = character.maxArmor,
+            barColor = Color(0xFF6B9EA8),
+            onTap = onLongTapArmor
+        )
+
+        // Center compass roll hero
+        AtmosphericRollHero(
+            rollValue = 17,
+            formula = "d20 + 3 [Бой] · Штормовой шквал"
+        )
+
+        // Brass compass dice row
+        TsingateCompassDieRow(
+            selectedDie = 20,
+            onDieClick = { onOpenDiceRoller() }
+        )
+
+        // CutCornerShape playing cards stats grid with Quick Roll
+        TsingateStatsGrid(
+            character = character,
+            onStatClick = { name, value -> onQuickRoll(name, value) }
+        )
+
+        // Ship log
+        RecentActionStampCard(
+            title = "СУДОВОЙ ЖУРНАЛ",
+            actionText = "Штиль в проливе Циньгейт. Курс на маяк.",
+            stampText = "ЗАПИСЬ"
+        )
+
         Spacer(Modifier.height(80.dp))
     }
 }
@@ -750,12 +1445,13 @@ private fun GmEditSheet(character: Character, onSave: (Character) -> Unit, onDis
     var maxHp         by remember { mutableStateOf(character.maxHp.toString()) }
     var armorCur      by remember { mutableStateOf(character.armor.toString()) }
     var armorMax      by remember { mutableStateOf(character.maxArmor.toString()) }
-    var wellbeing     by remember { mutableStateOf(character.wellbeing.toString()) }
+    var armorBlock    by remember { mutableStateOf(character.armorBlock.toString()) }
+    var constitution  by remember { mutableStateOf(character.constitution.toString()) }
     var movement      by remember { mutableStateOf(character.movement.toString()) }
-    var combat        by remember { mutableStateOf(character.combat.toString()) }
-    var thinking      by remember { mutableStateOf(character.thinking.toString()) }
-    var attention     by remember { mutableStateOf(character.attention.toString()) }
-    var communication by remember { mutableStateOf(character.communication.toString()) }
+    var perception    by remember { mutableStateOf(character.perception.toString()) }
+    var intelligence  by remember { mutableStateOf(character.intelligence.toString()) }
+    var influence     by remember { mutableStateOf(character.influence.toString()) }
+    var willpower     by remember { mutableStateOf(character.willpower.toString()) }
     var damage        by remember { mutableStateOf(character.damage.toString()) }
     var dodge         by remember { mutableStateOf(character.dodge.toString()) }
     var initiative    by remember { mutableStateOf(character.initiative.toString()) }
@@ -770,14 +1466,16 @@ private fun GmEditSheet(character: Character, onSave: (Character) -> Unit, onDis
     var inspiration   by remember { mutableStateOf(character.inspirationPoints) }
     var xp            by remember { mutableStateOf(character.experiencePoints.toString()) }
 
+    val t = LocalXanteya.current
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
+        containerColor = t.colors.panel,
         dragHandle = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 BottomSheetDefaults.DragHandle()
                 Text(stringResource(R.string.gm_edit_title),
-                    color = SecondaryGold, fontWeight = FontWeight.Bold,
+                    color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
             }
@@ -801,19 +1499,20 @@ private fun GmEditSheet(character: Character, onSave: (Character) -> Unit, onDis
             }
             GmSectionLabel("Броня")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GmIntField("Текущая", armorCur, { armorCur = it }, Modifier.weight(1f))
-                GmIntField("Максимум", armorMax, { armorMax = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_armor_durability), armorCur, { armorCur = it }, Modifier.weight(1f))
+                GmIntField("Макс. прочность", armorMax, { armorMax = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_armor_block), armorBlock, { armorBlock = it }, Modifier.weight(1f))
             }
             GmSectionLabel("Основные характеристики")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GmIntField(stringResource(R.string.stat_wellbeing), wellbeing, { wellbeing = it }, Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_movement), movement, { movement = it }, Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_combat), combat, { combat = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_constitution), constitution, { constitution = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_movement),     movement,     { movement = it },     Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_perception),   perception,   { perception = it },   Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GmIntField(stringResource(R.string.stat_thinking), thinking, { thinking = it }, Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_attention), attention, { attention = it }, Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_communication), communication, { communication = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_intelligence), intelligence, { intelligence = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_influence),    influence,    { influence = it },    Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_willpower),    willpower,    { willpower = it },    Modifier.weight(1f))
             }
             GmSectionLabel("Боевые параметры")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -852,12 +1551,13 @@ private fun GmEditSheet(character: Character, onSave: (Character) -> Unit, onDis
                         maxHp         = maxHp.toIntOrNull() ?: character.maxHp,
                         armor         = armorCur.toIntOrNull() ?: character.armor,
                         maxArmor      = armorMax.toIntOrNull() ?: character.maxArmor,
-                        wellbeing     = wellbeing.toIntOrNull() ?: character.wellbeing,
+                        armorBlock    = armorBlock.toIntOrNull() ?: character.armorBlock,
+                        constitution  = constitution.toIntOrNull() ?: character.constitution,
                         movement      = movement.toIntOrNull() ?: character.movement,
-                        combat        = combat.toIntOrNull() ?: character.combat,
-                        thinking      = thinking.toIntOrNull() ?: character.thinking,
-                        attention     = attention.toIntOrNull() ?: character.attention,
-                        communication = communication.toIntOrNull() ?: character.communication,
+                        perception    = perception.toIntOrNull() ?: character.perception,
+                        intelligence  = intelligence.toIntOrNull() ?: character.intelligence,
+                        influence     = influence.toIntOrNull() ?: character.influence,
+                        willpower     = willpower.toIntOrNull() ?: character.willpower,
                         damage        = damage.toIntOrNull() ?: character.damage,
                         dodge         = dodge.toIntOrNull() ?: character.dodge,
                         initiative    = initiative.toIntOrNull() ?: character.initiative,
@@ -871,8 +1571,8 @@ private fun GmEditSheet(character: Character, onSave: (Character) -> Unit, onDis
                     ))
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text(stringResource(R.string.save), fontWeight = FontWeight.Bold) }
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+            ) { Text(stringResource(R.string.save), fontFamily = t.display, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -883,6 +1583,7 @@ private fun GmResourceRow(
     label: String, current: Float, max: Float, color: Color,
     onCurChange: (Float) -> Unit, onMaxChange: (Float) -> Unit
 ) {
+    val t = LocalXanteya.current
     val fmtFloat: (Float) -> String = { v ->
         if (v == v.toInt().toFloat()) v.toInt().toString() else String.format("%.1f", v)
     }
@@ -890,10 +1591,10 @@ private fun GmResourceRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(10.dp).background(color, RoundedCornerShape(50)))
-        Text(label, color = TextSecondary, style = MaterialTheme.typography.bodySmall,
+        Text(label, color = t.colors.muted, fontFamily = t.body, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.width(56.dp))
         // Current
-        Text("Тек:", color = TextDisabled, fontSize = 10.sp)
+        Text("Тек:", color = t.colors.muted.copy(alpha = 0.7f), fontSize = 10.sp)
         IconButton(onClick = { onCurChange((current - 0.5f).coerceAtLeast(0f)) }, modifier = Modifier.size(28.dp)) {
             Text("−", color = AccentRed, fontWeight = FontWeight.Bold)
         }
@@ -903,11 +1604,11 @@ private fun GmResourceRow(
             Text("+", color = AccentGreen, fontWeight = FontWeight.Bold)
         }
         // Max
-        Text("Макс:", color = TextDisabled, fontSize = 10.sp)
+        Text("Макс:", color = t.colors.muted.copy(alpha = 0.7f), fontSize = 10.sp)
         IconButton(onClick = { onMaxChange((max - 0.5f).coerceAtLeast(0f)) }, modifier = Modifier.size(28.dp)) {
             Text("−", color = AccentRed, fontWeight = FontWeight.Bold)
         }
-        Text(fmtFloat(max), color = TextSecondary, fontWeight = FontWeight.Bold,
+        Text(fmtFloat(max), color = t.colors.muted, fontWeight = FontWeight.Bold,
             modifier = Modifier.width(30.dp), textAlign = TextAlign.Center)
         IconButton(onClick = { onMaxChange(max + 0.5f) }, modifier = Modifier.size(28.dp)) {
             Text("+", color = AccentGreen, fontWeight = FontWeight.Bold)
@@ -918,38 +1619,42 @@ private fun GmResourceRow(
 // --- GM Edit helpers ---
 
 @Composable private fun GmSectionLabel(text: String) {
+    val t = LocalXanteya.current
     Text(text, style = MaterialTheme.typography.labelMedium,
-        color = SecondaryGold, fontWeight = FontWeight.SemiBold)
+        color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable private fun GmTextField(label: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    val t = LocalXanteya.current
     OutlinedTextField(value = value, onValueChange = onValueChange,
-        label = { Text(label, fontSize = 11.sp) }, singleLine = true, modifier = modifier,
+        label = { Text(label, fontSize = 11.sp, color = t.colors.muted) }, singleLine = true, modifier = modifier,
         textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PrimaryPurple, unfocusedBorderColor = DarkSurfaceVariant,
-            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-            focusedLabelColor = PrimaryPurpleLight, unfocusedLabelColor = TextDisabled))
+            focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+            focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+            focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted))
 }
 
 @Composable private fun GmIntField(label: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    val t = LocalXanteya.current
     OutlinedTextField(
         value = value,
-        onValueChange = { if (it.all { c -> c.isDigit() || c == '-' }) onValueChange(it) },
-        label = { Text(label, fontSize = 10.sp, maxLines = 1) },
+        onValueChange = { if (it.all { c -> c.isDigit() }) onValueChange(it) },
+        label = { Text(label, fontSize = 10.sp, maxLines = 1, color = t.colors.muted) },
         singleLine = true, modifier = modifier,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PrimaryPurple, unfocusedBorderColor = DarkSurfaceVariant,
-            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-            focusedLabelColor = PrimaryPurpleLight, unfocusedLabelColor = TextDisabled))
+            focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+            focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+            focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted))
 }
 
 // --- No Character (Player) ---
 
 @Composable
 private fun NoCharacterView(campaignId: String?, viewModel: CharacterSheetViewModel) {
+    val t = LocalXanteya.current
     var showCreate by remember { mutableStateOf(false) }
     var name      by remember { mutableStateOf("") }
     var className by remember { mutableStateOf("") }
@@ -959,33 +1664,35 @@ private fun NoCharacterView(campaignId: String?, viewModel: CharacterSheetViewMo
             Column(modifier = Modifier.padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.create_character), color = TextPrimary,
+                Text(stringResource(R.string.create_character), color = t.colors.text,
+                    fontFamily = t.display,
                     style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(value = name, onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.character_name)) },
+                    label = { Text(stringResource(R.string.character_name), color = t.colors.muted) },
                     singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = className, onValueChange = { className = it },
-                    label = { Text(stringResource(R.string.character_class)) },
+                    label = { Text(stringResource(R.string.character_class), color = t.colors.muted) },
                     singleLine = true, modifier = Modifier.fillMaxWidth())
                 Button(onClick = { viewModel.createCharacter(campaignId, name, className) },
                     enabled = name.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-                ) { Text(stringResource(R.string.create)) }
+                    colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+                ) { Text(stringResource(R.string.create), fontFamily = t.display) }
                 TextButton(onClick = { showCreate = false }) {
-                    Text(stringResource(R.string.cancel), color = TextSecondary)
+                    Text(stringResource(R.string.cancel), color = t.colors.muted, fontFamily = t.body)
                 }
             }
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Filled.Person, contentDescription = null,
-                    tint = TextDisabled, modifier = Modifier.size(48.dp))
-                Text(stringResource(R.string.no_character), color = TextSecondary,
+                    tint = t.colors.muted, modifier = Modifier.size(48.dp))
+                Text(stringResource(R.string.no_character), color = t.colors.muted,
+                    fontFamily = t.body,
                     textAlign = TextAlign.Center)
                 if (campaignId != null) {
                     Button(onClick = { showCreate = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-                    ) { Text(stringResource(R.string.create_character)) }
+                        colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+                    ) { Text(stringResource(R.string.create_character), fontFamily = t.display) }
                 }
             }
         }
@@ -1003,31 +1710,45 @@ private fun QuickChangeDialog(
     onNegative: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val t = LocalXanteya.current
     var amount by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text(title, color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text(title, color = t.colors.text, fontFamily = t.display) },
         text = {
             OutlinedTextField(
-                value = amount, onValueChange = { amount = it },
-                label = { Text(stringResource(R.string.amount)) },
+                value = amount,
+                onValueChange = { amount = it.filter { c -> c.isDigit() }.take(4) },
+                label = { Text(stringResource(R.string.amount), color = t.colors.muted, fontFamily = t.body) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true)
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = t.colors.accent,
+                    unfocusedBorderColor = t.colors.line,
+                    focusedTextColor = t.colors.text,
+                    unfocusedTextColor = t.colors.text
+                )
+            )
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { amount.toIntOrNull()?.let { onNegative(it) } }) {
-                    Text(negativeLabel, color = negativeColor)
+                TextButton(onClick = {
+                    amount.toIntOrNull()?.let { if (it > 0) onNegative(it) }
+                }) {
+                    Text(negativeLabel, color = negativeColor, fontFamily = t.display)
                 }
-                TextButton(onClick = { amount.toIntOrNull()?.let { onPositive(it) } }) {
-                    Text(positiveLabel, color = positiveColor)
+                TextButton(onClick = {
+                    amount.toIntOrNull()?.let { if (it > 0) onPositive(it) }
+                }) {
+                    Text(positiveLabel, color = positiveColor, fontFamily = t.display)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel), color = TextSecondary)
+                Text(stringResource(R.string.cancel), color = t.colors.muted, fontFamily = t.body)
             }
         }
     )
@@ -1037,16 +1758,18 @@ private fun QuickChangeDialog(
 
 @Composable
 private fun CenteredMessage(msg: String) {
+    val t = LocalXanteya.current
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(msg, color = TextSecondary, style = MaterialTheme.typography.bodyLarge,
+        Text(msg, color = t.colors.muted, fontFamily = t.body, style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center, modifier = Modifier.padding(32.dp))
     }
 }
 
 @Composable
 private fun CenteredLoader() {
+    val t = LocalXanteya.current
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = PrimaryPurple)
+        CircularProgressIndicator(color = t.colors.accent)
     }
 }
 
@@ -1058,16 +1781,18 @@ private fun CenteredLoader() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerEditSheet(character: Character, onSave: (Character) -> Unit, onDismiss: () -> Unit) {
+    val t = LocalXanteya.current
     // Armor
     var armorCur  by remember { mutableStateOf(character.armor.toString()) }
     var armorMax  by remember { mutableStateOf(character.maxArmor.toString()) }
+    var armorBlock by remember { mutableStateOf(character.armorBlock.toString()) }
     // 6 main stats
-    var wellbeing     by remember { mutableStateOf(character.wellbeing.toString()) }
+    var constitution  by remember { mutableStateOf(character.constitution.toString()) }
     var movement      by remember { mutableStateOf(character.movement.toString()) }
-    var combat        by remember { mutableStateOf(character.combat.toString()) }
-    var thinking      by remember { mutableStateOf(character.thinking.toString()) }
-    var attention     by remember { mutableStateOf(character.attention.toString()) }
-    var communication by remember { mutableStateOf(character.communication.toString()) }
+    var perception    by remember { mutableStateOf(character.perception.toString()) }
+    var intelligence  by remember { mutableStateOf(character.intelligence.toString()) }
+    var influence     by remember { mutableStateOf(character.influence.toString()) }
+    var willpower     by remember { mutableStateOf(character.willpower.toString()) }
     // Max magic resources
     var quarMax   by remember { mutableStateOf(character.maxQuarResource) }
     var ombraMax  by remember { mutableStateOf(character.maxOmbraResource) }
@@ -1076,13 +1801,14 @@ private fun PlayerEditSheet(character: Character, onSave: (Character) -> Unit, o
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
+        containerColor = t.colors.panel,
         dragHandle = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 BottomSheetDefaults.DragHandle()
                 Text(
                     "✏ Редактирование персонажа",
-                    color = PrimaryPurpleLight,
+                    color = t.colors.accent,
+                    fontFamily = t.display,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -1100,21 +1826,22 @@ private fun PlayerEditSheet(character: Character, onSave: (Character) -> Unit, o
             // ── Armor ────────────────────────────────────────────────────────
             PlayerSectionLabel("Броня")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GmIntField("Текущая", armorCur, { armorCur = it }, Modifier.weight(1f))
-                GmIntField("Максимум", armorMax, { armorMax = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_armor_durability), armorCur, { armorCur = it }, Modifier.weight(1f))
+                GmIntField("Макс. прочность", armorMax, { armorMax = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_armor_block), armorBlock, { armorBlock = it }, Modifier.weight(1f))
             }
 
             // ── Main stats ───────────────────────────────────────────────────
             PlayerSectionLabel("Основные характеристики")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GmIntField(stringResource(R.string.stat_wellbeing), wellbeing, { wellbeing = it }, Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_movement),  movement,  { movement = it },  Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_combat),    combat,    { combat = it },    Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_constitution), constitution, { constitution = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_movement),     movement,     { movement = it },     Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_perception),   perception,   { perception = it },   Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GmIntField(stringResource(R.string.stat_thinking),      thinking,      { thinking = it },      Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_attention),     attention,     { attention = it },     Modifier.weight(1f))
-                GmIntField(stringResource(R.string.stat_communication), communication, { communication = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_intelligence), intelligence, { intelligence = it }, Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_influence),    influence,    { influence = it },    Modifier.weight(1f))
+                GmIntField(stringResource(R.string.stat_willpower),    willpower,    { willpower = it },    Modifier.weight(1f))
             }
 
             // ── Max magic resources ──────────────────────────────────────────
@@ -1130,12 +1857,13 @@ private fun PlayerEditSheet(character: Character, onSave: (Character) -> Unit, o
                     onSave(character.copy(
                         armor         = armorCur.toIntOrNull() ?: character.armor,
                         maxArmor      = armorMax.toIntOrNull() ?: character.maxArmor,
-                        wellbeing     = wellbeing.toIntOrNull()     ?: character.wellbeing,
+                        armorBlock    = armorBlock.toIntOrNull() ?: character.armorBlock,
+                        constitution  = constitution.toIntOrNull()     ?: character.constitution,
                         movement      = movement.toIntOrNull()      ?: character.movement,
-                        combat        = combat.toIntOrNull()        ?: character.combat,
-                        thinking      = thinking.toIntOrNull()      ?: character.thinking,
-                        attention     = attention.toIntOrNull()     ?: character.attention,
-                        communication = communication.toIntOrNull() ?: character.communication,
+                        perception    = perception.toIntOrNull()    ?: character.perception,
+                        intelligence  = intelligence.toIntOrNull()  ?: character.intelligence,
+                        influence     = influence.toIntOrNull()     ?: character.influence,
+                        willpower     = willpower.toIntOrNull()     ?: character.willpower,
                         maxQuarResource   = quarMax,
                         maxOmbraResource  = ombraMax,
                         maxVerunaResource = verunaMax,
@@ -1149,16 +1877,17 @@ private fun PlayerEditSheet(character: Character, onSave: (Character) -> Unit, o
                     ))
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text(stringResource(R.string.save), fontWeight = FontWeight.Bold) }
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+            ) { Text(stringResource(R.string.save), fontFamily = t.display, fontWeight = FontWeight.Bold) }
         }
     }
 }
 
 @Composable
 private fun PlayerSectionLabel(text: String) {
+    val t = LocalXanteya.current
     Text(text, style = MaterialTheme.typography.labelMedium,
-        color = PrimaryPurpleLight, fontWeight = FontWeight.SemiBold)
+        color = t.colors.accent, fontFamily = t.display, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable
@@ -1168,6 +1897,7 @@ private fun PlayerMaxResourceRow(
     color: androidx.compose.ui.graphics.Color,
     onValueChange: (Float) -> Unit
 ) {
+    val t = LocalXanteya.current
     val fmt: (Float) -> String = { v ->
         if (v == v.toInt().toFloat()) v.toInt().toString() else String.format("%.1f", v)
     }
@@ -1177,9 +1907,9 @@ private fun PlayerMaxResourceRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(Modifier.size(10.dp).background(color, RoundedCornerShape(50)))
-        Text(label, color = TextSecondary, style = MaterialTheme.typography.bodySmall,
+        Text(label, color = t.colors.muted, fontFamily = t.body, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.width(56.dp))
-        Text("Макс:", color = TextDisabled, fontSize = 10.sp)
+        Text("Макс:", color = t.colors.muted.copy(alpha = 0.7f), fontSize = 10.sp)
         IconButton(
             onClick = { onValueChange((value - 0.5f).coerceAtLeast(0f)) },
             modifier = Modifier.size(32.dp)
@@ -1194,12 +1924,15 @@ private fun PlayerMaxResourceRow(
 }
 
 @Composable
-private fun npcSheetFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-    focusedBorderColor = PrimaryPurple, unfocusedBorderColor = DarkSurfaceVariant,
-    cursorColor = PrimaryPurple, focusedLabelColor = PrimaryPurple, unfocusedLabelColor = TextSecondary,
-    focusedContainerColor = DarkSurface, unfocusedContainerColor = DarkSurface
-)
+private fun npcSheetFieldColors(): TextFieldColors {
+    val t = LocalXanteya.current
+    return OutlinedTextFieldDefaults.colors(
+        focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+        focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+        cursorColor = t.colors.accent, focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted,
+        focusedContainerColor = t.colors.bg, unfocusedContainerColor = t.colors.bg
+    )
+}
 
 // ── NPC Tab: list of all campaign NPCs with create/edit/delete ─────────────────
 
@@ -1211,6 +1944,7 @@ private fun NpcTabContent(
     onEditNpc: (PlayerNpc) -> Unit,
     onDeleteNpc: (PlayerNpc) -> Unit
 ) {
+    val t = LocalXanteya.current
     val npcs = (playerNpcUiState as? PlayerNpcUiState.Success)?.npcs ?: emptyList()
     Box(modifier = Modifier.fillMaxSize()) {
         when {
@@ -1229,38 +1963,41 @@ private fun NpcTabContent(
         FloatingActionButton(
             onClick = onCreateNpc,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            containerColor = PrimaryPurple
+            containerColor = t.colors.accent,
+            contentColor = t.colors.bg
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Создать НПС", tint = OnPrimary)
+            Icon(Icons.Filled.Add, contentDescription = "Создать НПС")
         }
     }
 }
 
 @Composable
 private fun NpcTabCard(npc: PlayerNpc, onEdit: () -> Unit, onDelete: () -> Unit) {
+    val t = LocalXanteya.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
-        color = DarkCard
+        shape = RoundedCornerShape(t.corner),
+        color = t.colors.panel,
+        border = androidx.compose.foundation.BorderStroke(1.dp, t.colors.line)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(npc.name, color = TextPrimary, fontWeight = FontWeight.SemiBold,
+                    Text(npc.name, color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.bodyLarge)
                     if (npc.description.isNotBlank()) {
-                        Text(npc.description, color = TextSecondary,
+                        Text(npc.description, color = t.colors.muted, fontFamily = t.body,
                             style = MaterialTheme.typography.bodySmall, maxLines = 2)
                     }
                 }
                 Row {
                     IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Filled.Edit, contentDescription = "Редактировать",
-                            tint = PrimaryPurple, modifier = Modifier.size(18.dp))
+                            tint = t.colors.accent, modifier = Modifier.size(18.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Filled.Delete, contentDescription = "Удалить",
@@ -1271,18 +2008,19 @@ private fun NpcTabCard(npc: PlayerNpc, onEdit: () -> Unit, onDelete: () -> Unit)
             if (npc.hp > 0 || npc.armor > 0 || npc.damage.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (npc.hp > 0)        Text("❤️ ${npc.hp}",    color = AccentRed,          style = MaterialTheme.typography.labelSmall)
-                    if (npc.armor > 0)     Text("🛡 ${npc.armor}",  color = Color(0xFF5B8DD9), style = MaterialTheme.typography.labelSmall)
-                    if (npc.damage.isNotBlank()) Text("⚔️ ${npc.damage}", color = SecondaryGoldLight, style = MaterialTheme.typography.labelSmall)
+                    if (npc.hp > 0)        Text("❤️ ${npc.hp}",    color = AccentRed,          fontFamily = t.body, style = MaterialTheme.typography.labelSmall)
+                    if (npc.armor > 0)     Text("🛡 ${npc.armor}",  color = Color(0xFF5B8DD9),  fontFamily = t.body, style = MaterialTheme.typography.labelSmall)
+                    if (npc.damage.isNotBlank()) Text("⚔️ ${npc.damage}", color = t.colors.accent, fontFamily = t.body, style = MaterialTheme.typography.labelSmall)
                 }
             }
             if (npc.tags.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
                     npc.tags.forEach { tag ->
-                        Text(tag, color = PrimaryPurpleLight, style = MaterialTheme.typography.labelSmall,
+                        Text(tag, color = t.colors.accent, fontFamily = t.body, style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier
-                                .background(Color(0xFF1A0A2E), RoundedCornerShape(8.dp))
+                                .background(t.colors.bg, RoundedCornerShape(6.dp))
+                                .border(1.dp, t.colors.line, RoundedCornerShape(6.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
@@ -1300,6 +2038,7 @@ private fun NpcSaveSheet(
     onDismiss: () -> Unit,
     onSave: (PlayerNpc) -> Unit
 ) {
+    val t = LocalXanteya.current
     val isNew = npc.name.isBlank()
     var name        by remember(npc.id) { mutableStateOf(npc.name) }
     var description by remember(npc.id) { mutableStateOf(npc.description) }
@@ -1310,13 +2049,14 @@ private fun NpcSaveSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
+        containerColor = t.colors.panel,
         dragHandle = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 BottomSheetDefaults.DragHandle()
                 Text(
                     if (isNew) "Создать НПС" else "Редактировать НПС",
-                    color = PrimaryPurpleLight,
+                    color = t.colors.accent,
+                    fontFamily = t.display,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -1333,13 +2073,13 @@ private fun NpcSaveSheet(
         ) {
             OutlinedTextField(
                 value = name, onValueChange = { name = it },
-                label = { Text("Имя НПС", color = TextSecondary) },
+                label = { Text("Имя НПС", color = t.colors.muted, fontFamily = t.body) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 colors = npcSheetFieldColors()
             )
             OutlinedTextField(
                 value = description, onValueChange = { description = it },
-                label = { Text("Описание", color = TextSecondary) },
+                label = { Text("Описание", color = t.colors.muted, fontFamily = t.body) },
                 minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth(),
                 colors = npcSheetFieldColors()
             )
@@ -1347,7 +2087,7 @@ private fun NpcSaveSheet(
                 OutlinedTextField(
                     value = hp,
                     onValueChange = { hp = it.filter { c -> c.isDigit() } },
-                    label = { Text("❤️ HP", color = TextSecondary) },
+                    label = { Text("❤️ HP", color = t.colors.muted, fontFamily = t.body) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
@@ -1356,7 +2096,7 @@ private fun NpcSaveSheet(
                 OutlinedTextField(
                     value = armor,
                     onValueChange = { armor = it.filter { c -> c.isDigit() } },
-                    label = { Text("🛡️ Броня", color = TextSecondary) },
+                    label = { Text("🛡️ Броня", color = t.colors.muted, fontFamily = t.body) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
@@ -1364,14 +2104,14 @@ private fun NpcSaveSheet(
                 )
                 OutlinedTextField(
                     value = damage, onValueChange = { damage = it },
-                    label = { Text("⚔️ Урон", color = TextSecondary) },
+                    label = { Text("⚔️ Урон", color = t.colors.muted, fontFamily = t.body) },
                     singleLine = true, modifier = Modifier.weight(1f),
                     colors = npcSheetFieldColors()
                 )
             }
             OutlinedTextField(
                 value = tags, onValueChange = { tags = it },
-                label = { Text("Теги (через запятую)", color = TextSecondary) },
+                label = { Text("Теги (через запятую)", color = t.colors.muted, fontFamily = t.body) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 colors = npcSheetFieldColors()
             )
@@ -1392,9 +2132,9 @@ private fun NpcSaveSheet(
                     )
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text(if (isNew) "Создать НПС" else "Сохранить", fontWeight = FontWeight.SemiBold) }
+                shape = RoundedCornerShape(t.corner),
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+            ) { Text(if (isNew) "Создать НПС" else "Сохранить", fontFamily = t.display, fontWeight = FontWeight.SemiBold) }
         }
     }
 }

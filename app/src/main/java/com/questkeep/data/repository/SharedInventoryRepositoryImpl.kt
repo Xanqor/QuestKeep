@@ -37,42 +37,62 @@ class SharedInventoryRepositoryImpl @Inject constructor(
             .get().await()
             .documents.firstOrNull()?.reference
 
-    override fun getItems(campaignId: String): Flow<List<SharedInventoryItem>> = callbackFlow {
-        val listener = bankCollection(campaignId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) return@addSnapshotListener
-                val items = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        SharedInventoryItem(
-                            id = doc.id,
-                            campaignId = campaignId,
-                            name = doc.getString("name") ?: "",
-                            description = doc.getString("description") ?: "",
-                            quantity = (doc.getLong("quantity") ?: 1L).toInt(),
-                            depositedBy = doc.getString("depositedBy") ?: "",
-                            createdAt = doc.getLong("createdAt") ?: 0L
-                        )
-                    } catch (_: Exception) { null }
-                }?.sortedBy { it.createdAt } ?: emptyList()
-                launch { items.forEach { dao.insertItem(it.toEntity()) } }
-                trySend(items)
+    override fun getItems(campaignId: String): Flow<List<SharedInventoryItem>> =
+        kotlinx.coroutines.flow.channelFlow {
+            // 1. Instantly emit cached items from Room
+            val localJob = launch {
+                dao.getItems(campaignId).collect { entities ->
+                    trySend(entities.map { it.toDomain() })
+                }
             }
-        awaitClose { listener.remove() }
-    }
+
+            // 2. Real-time Firestore sync
+            val listener = bankCollection(campaignId)
+                .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
+                    if (error != null) return@addSnapshotListener
+                    val items = snapshot?.documents?.mapNotNull { doc ->
+                        try {
+                            SharedInventoryItem(
+                                id = doc.id,
+                                campaignId = campaignId,
+                                name = doc.getString("name") ?: "",
+                                description = doc.getString("description") ?: "",
+                                quantity = (doc.getLong("quantity") ?: 1L).toInt(),
+                                depositedBy = doc.getString("depositedBy") ?: "",
+                                createdAt = doc.getLong("createdAt") ?: 0L
+                            )
+                        } catch (_: Exception) { null }
+                    }?.sortedBy { it.createdAt } ?: emptyList()
+                    launch { items.forEach { dao.insertItem(it.toEntity()) } }
+                }
+
+            awaitClose {
+                localJob.cancel()
+                listener.remove()
+            }
+        }
+
+    private fun treasuryVaultRef(campaignId: String) =
+        campaignRef(campaignId).collection("treasury").document("vault")
 
     override fun getBankCrowns(campaignId: String): Flow<Int> = callbackFlow {
-        val listener = campaignRef(campaignId)
-            .addSnapshotListener { doc, error ->
+        // treasury/vault is the single source of truth. Previously a second
+        // listener to campaigns/{id}.bankCrowns could arrive later and replace
+        // a valid vault balance in the UI with a stale zero.
+        val vaultListener = treasuryVaultRef(campaignId)
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { doc, error ->
                 if (error != null) return@addSnapshotListener
-                trySend((doc?.getLong("bankCrowns") ?: 0L).toInt())
+                trySend((doc?.getLong("crowns") ?: 0L).toInt())
             }
-        awaitClose { listener.remove() }
+
+        awaitClose { vaultListener.remove() }
     }
 
     override suspend fun depositItem(item: SharedInventoryItem): Result<Unit> {
+        val id = if (item.id.isNotBlank()) item.id else UUID.randomUUID().toString()
+        val newItem = item.copy(id = id, createdAt = if (item.createdAt > 0L) item.createdAt else System.currentTimeMillis())
+        try { dao.insertItem(newItem.toEntity()) } catch (_: Exception) {}
         return try {
-            val id = UUID.randomUUID().toString()
-            val newItem = item.copy(id = id, createdAt = System.currentTimeMillis())
             bankCollection(item.campaignId).document(id).set(mapOf(
                 "name" to newItem.name,
                 "description" to newItem.description,
@@ -80,51 +100,158 @@ class SharedInventoryRepositoryImpl @Inject constructor(
                 "depositedBy" to newItem.depositedBy,
                 "createdAt" to newItem.createdAt
             )).await()
-            dao.insertItem(newItem.toEntity())
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
     }
 
     override suspend fun withdrawItem(itemId: String, campaignId: String): Result<Unit> {
+        try { dao.deleteItem(itemId) } catch (_: Exception) {}
         return try {
             bankCollection(campaignId).document(itemId).delete().await()
-            dao.deleteItem(itemId)
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
     }
 
     override suspend fun depositCrowns(campaignId: String, userId: String, amount: Int): Result<Unit> {
+        if (amount <= 0) return Result.failure(Exception("Сумма должна быть больше 0"))
         return try {
+            val campRef = campaignRef(campaignId)
+            val vaultRef = treasuryVaultRef(campaignId)
+            val campDoc = campRef.get().await()
+            val gmId = campDoc.getString("gmId")
+            @Suppress("UNCHECKED_CAST")
+            val coGmIds = (campDoc.get("coGmIds") as? List<String>) ?: emptyList()
+
+            // If user is GM/co-GM, deposit directly without requiring a character
+            if (userId == gmId || userId in coGmIds) {
+                val vaultDoc = vaultRef.get().await()
+                if (vaultDoc.exists()) {
+                    vaultRef.update("crowns", com.google.firebase.firestore.FieldValue.increment(amount.toLong())).await()
+                } else {
+                    val initial = (campDoc.getLong("bankCrowns") ?: 0L).toInt() + amount
+                    vaultRef.set(mapOf(
+                        "crowns" to initial,
+                        "updatedAt" to System.currentTimeMillis(),
+                        "lastModifiedBy" to userId
+                    )).await()
+                }
+                try {
+                    campRef.update("bankCrowns", com.google.firebase.firestore.FieldValue.increment(amount.toLong())).await()
+                } catch (_: Exception) {}
+                return Result.success(Unit)
+            }
+
             val charRef = resolveCharacterRef(campaignId, userId)
                 ?: return Result.failure(Exception("Персонаж не найден. Создайте персонажа в кампании."))
-            val campRef = campaignRef(campaignId)
+
             firestore.runTransaction { tx ->
                 val charDoc = tx.get(charRef)
-                val campDoc = tx.get(campRef)
+                val vaultDoc = tx.get(vaultRef)
                 val playerCrowns = (charDoc.getLong("crowns") ?: 0L).toInt()
                 if (playerCrowns < amount) throw Exception("Недостаточно монет (у вас $playerCrowns)")
-                val bankCrowns = (campDoc.getLong("bankCrowns") ?: 0L).toInt()
+
+                val currentVault = if (vaultDoc.exists()) {
+                    (vaultDoc.getLong("crowns") ?: 0L).toInt()
+                } else {
+                    val liveCampDoc = tx.get(campRef)
+                    (liveCampDoc.getLong("bankCrowns") ?: 0L).toInt()
+                }
+
                 tx.update(charRef, "crowns", playerCrowns - amount)
-                tx.update(campRef, "bankCrowns", bankCrowns + amount)
+                if (vaultDoc.exists()) {
+                    tx.update(vaultRef, mapOf(
+                        "crowns" to (currentVault + amount),
+                        "updatedAt" to System.currentTimeMillis(),
+                        "lastModifiedBy" to userId
+                    ))
+                } else {
+                    tx.set(vaultRef, mapOf(
+                        "crowns" to (currentVault + amount),
+                        "updatedAt" to System.currentTimeMillis(),
+                        "lastModifiedBy" to userId
+                    ))
+                }
             }.await()
+
+            // Best effort sync root camp for GM
+            try {
+                campRef.update("bankCrowns", com.google.firebase.firestore.FieldValue.increment(amount.toLong()))
+            } catch (_: Exception) {}
+
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
     }
 
     override suspend fun withdrawCrowns(campaignId: String, userId: String, amount: Int): Result<Unit> {
+        if (amount <= 0) return Result.failure(Exception("Сумма должна быть больше 0"))
         return try {
+            val campRef = campaignRef(campaignId)
+            val vaultRef = treasuryVaultRef(campaignId)
+            val campDoc = campRef.get().await()
+            val gmId = campDoc.getString("gmId")
+            @Suppress("UNCHECKED_CAST")
+            val coGmIds = (campDoc.get("coGmIds") as? List<String>) ?: emptyList()
+
+            // If user is GM/co-GM, withdraw directly
+            if (userId == gmId || userId in coGmIds) {
+                val vaultDoc = vaultRef.get().await()
+                val currentVault = if (vaultDoc.exists()) {
+                    (vaultDoc.getLong("crowns") ?: 0L).toInt()
+                } else {
+                    (campDoc.getLong("bankCrowns") ?: 0L).toInt()
+                }
+                if (currentVault < amount) return Result.failure(Exception("В банке только $currentVault монет"))
+
+                if (vaultDoc.exists()) {
+                    vaultRef.update("crowns", com.google.firebase.firestore.FieldValue.increment(-amount.toLong())).await()
+                } else {
+                    vaultRef.set(mapOf(
+                        "crowns" to (currentVault - amount),
+                        "updatedAt" to System.currentTimeMillis(),
+                        "lastModifiedBy" to userId
+                    )).await()
+                }
+                try {
+                    campRef.update("bankCrowns", com.google.firebase.firestore.FieldValue.increment(-amount.toLong())).await()
+                } catch (_: Exception) {}
+                return Result.success(Unit)
+            }
+
             val charRef = resolveCharacterRef(campaignId, userId)
                 ?: return Result.failure(Exception("Персонаж не найден. Создайте персонажа в кампании."))
-            val campRef = campaignRef(campaignId)
+
             firestore.runTransaction { tx ->
                 val charDoc = tx.get(charRef)
-                val campDoc = tx.get(campRef)
-                val bankCrowns = (campDoc.getLong("bankCrowns") ?: 0L).toInt()
-                if (bankCrowns < amount) throw Exception("В банке только $bankCrowns монет")
+                val vaultDoc = tx.get(vaultRef)
+                val currentVault = if (vaultDoc.exists()) {
+                    (vaultDoc.getLong("crowns") ?: 0L).toInt()
+                } else {
+                    val liveCampDoc = tx.get(campRef)
+                    (liveCampDoc.getLong("bankCrowns") ?: 0L).toInt()
+                }
+                if (currentVault < amount) throw Exception("В банке только $currentVault монет")
                 val playerCrowns = (charDoc.getLong("crowns") ?: 0L).toInt()
-                tx.update(campRef, "bankCrowns", bankCrowns - amount)
+
+                if (vaultDoc.exists()) {
+                    tx.update(vaultRef, mapOf(
+                        "crowns" to (currentVault - amount),
+                        "updatedAt" to System.currentTimeMillis(),
+                        "lastModifiedBy" to userId
+                    ))
+                } else {
+                    tx.set(vaultRef, mapOf(
+                        "crowns" to (currentVault - amount),
+                        "updatedAt" to System.currentTimeMillis(),
+                        "lastModifiedBy" to userId
+                    ))
+                }
                 tx.update(charRef, "crowns", playerCrowns + amount)
             }.await()
+
+            try {
+                campRef.update("bankCrowns", com.google.firebase.firestore.FieldValue.increment(-amount.toLong()))
+            } catch (_: Exception) {}
+
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
     }

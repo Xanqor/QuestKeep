@@ -1,10 +1,12 @@
-﻿package com.questkeep.viewmodel
+package com.questkeep.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.questkeep.domain.entities.Campaign
+import com.questkeep.domain.entities.Character
 import com.questkeep.domain.repository.AuthRepository
 import com.questkeep.domain.repository.CampaignRepository
+import com.questkeep.domain.repository.CharacterRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,13 +17,15 @@ data class PlayerListItem(
     val nickname: String,
     val avatarEmoji: String,
     val isGm: Boolean,
-    val isCoGm: Boolean
+    val isCoGm: Boolean,
+    val character: Character? = null
 )
 
 @HiltViewModel
 class PlayerListViewModel @Inject constructor(
     private val campaignRepository: CampaignRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val characterRepository: CharacterRepository
 ) : ViewModel() {
 
     private val _players = MutableStateFlow<List<PlayerListItem>>(emptyList())
@@ -43,25 +47,35 @@ class PlayerListViewModel @Inject constructor(
 
     fun loadPlayers(campaignId: String) {
         viewModelScope.launch {
-            campaignRepository.getCampaign(campaignId)
-                .catch { _isLoading.value = false }
-                .collect { campaign ->
-                    _campaign.value = campaign
-                    if (campaign == null) { _isLoading.value = false; return@collect }
-                    val allIds = (listOf(campaign.gmId) + campaign.coGmIds + campaign.playerIds).distinct()
-                    val items = allIds.mapNotNull { userId ->
-                        val user = authRepository.getUser(userId)
-                        PlayerListItem(
-                            userId      = userId,
-                            nickname    = user?.nickname ?: userId.take(8),
-                            avatarEmoji = user?.avatarEmoji ?: "\uD83E\uDDD9",
-                            isGm        = userId == campaign.gmId,
-                            isCoGm      = userId in campaign.coGmIds
-                        )
-                    }
-                    _players.value = items
+            combine(
+                campaignRepository.getCampaign(campaignId),
+                characterRepository.getCharactersForCampaign(campaignId)
+            ) { campaign, characters ->
+                campaign to characters
+            }
+            .catch { _isLoading.value = false }
+            .collect { (campaign, characters) ->
+                _campaign.value = campaign
+                if (campaign == null) {
                     _isLoading.value = false
+                    return@collect
                 }
+                val allIds = (listOf(campaign.gmId) + campaign.coGmIds + campaign.playerIds).distinct()
+                val items = allIds.map { userId ->
+                    val user = authRepository.getUser(userId)
+                    val char = characters.find { it.playerId == userId }
+                    PlayerListItem(
+                        userId      = userId,
+                        nickname    = user?.nickname ?: userId.take(8),
+                        avatarEmoji = user?.avatarEmoji ?: "🧙",
+                        isGm        = userId == campaign.gmId,
+                        isCoGm      = userId in campaign.coGmIds,
+                        character   = char
+                    )
+                }
+                _players.value = items
+                _isLoading.value = false
+            }
         }
     }
 

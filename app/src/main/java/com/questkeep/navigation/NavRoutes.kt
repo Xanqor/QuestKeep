@@ -25,6 +25,7 @@ object NavRoutes {
     const val ITEM_CARDS = "item_cards"
     const val SHARED_INVENTORY = "shared_inventory"
     const val PLAYER_NOTES = "player_notes"
+    const val RULES = "rules"
 }
 
 enum class BottomTab(val route: String, val labelRes: Int, val iconRes: String) {

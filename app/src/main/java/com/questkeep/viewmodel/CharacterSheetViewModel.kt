@@ -110,27 +110,36 @@ class CharacterSheetViewModel @Inject constructor(
 
     fun applyDamage(amount: Int) {
         val c = currentCharacter ?: return
-        updateCharacter(c.copy(currentHp = (c.currentHp - amount).coerceAtLeast(0)))
+        val pos = kotlin.math.abs(amount)
+        updateCharacter(c.copy(currentHp = (c.currentHp - pos).coerceIn(0, c.maxHp)))
     }
 
     fun applyHealing(amount: Int) {
         val c = currentCharacter ?: return
-        updateCharacter(c.copy(currentHp = (c.currentHp + amount).coerceAtMost(c.maxHp)))
+        val pos = kotlin.math.abs(amount)
+        updateCharacter(c.copy(currentHp = (c.currentHp + pos).coerceIn(0, c.maxHp)))
     }
 
     fun applyArmorDamage(amount: Int) {
         val c = currentCharacter ?: return
-        updateCharacter(c.copy(armor = (c.armor - amount).coerceAtLeast(0)))
+        val pos = kotlin.math.abs(amount)
+        updateCharacter(c.copy(armor = (c.armor - pos).coerceIn(0, c.maxArmor)))
     }
 
     fun applyArmorRepair(amount: Int) {
         val c = currentCharacter ?: return
-        updateCharacter(c.copy(armor = (c.armor + amount).coerceAtMost(c.maxArmor)))
+        val pos = kotlin.math.abs(amount)
+        updateCharacter(c.copy(armor = (c.armor + pos).coerceIn(0, c.maxArmor)))
     }
 
     fun updateInspirationPoints(delta: Int) {
         val c = currentCharacter ?: return
         updateCharacter(c.copy(inspirationPoints = (c.inspirationPoints + delta).coerceIn(0, 6)))
+    }
+
+    fun setInspirationPoints(points: Int) {
+        val c = currentCharacter ?: return
+        updateCharacter(c.copy(inspirationPoints = points.coerceIn(0, 6)))
     }
 
     fun awardXp(amount: Int) {
@@ -167,8 +176,18 @@ class CharacterSheetViewModel @Inject constructor(
     val currentCharacterSnapshot: Character? get() = currentCharacter
 
     private fun updateCharacter(character: Character) {
-        currentCharacter = character
-        _uiState.value = CharacterSheetUiState.Success(character)
-        viewModelScope.launch { characterRepository.updateCharacter(character) }
+        val safeMaxHp = character.maxHp.coerceAtLeast(1)
+        val safeHp = character.currentHp.coerceIn(0, safeMaxHp)
+        val safeMaxArmor = character.maxArmor.coerceAtLeast(0)
+        val safeArmor = character.armor.coerceIn(0, safeMaxArmor)
+        val sanitized = character.copy(
+            maxHp = safeMaxHp,
+            currentHp = safeHp,
+            maxArmor = safeMaxArmor,
+            armor = safeArmor
+        )
+        currentCharacter = sanitized
+        _uiState.value = CharacterSheetUiState.Success(sanitized)
+        viewModelScope.launch { characterRepository.updateCharacter(sanitized) }
     }
 }

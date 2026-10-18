@@ -50,13 +50,19 @@ class ChatViewModel @Inject constructor(
     val currentUserId: String? get() = authRepository.currentUserId
 
     private var loadedCampaignId: String? = null
+    private var messageJob: kotlinx.coroutines.Job? = null
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun loadMessages(campaignId: String) {
-        if (campaignId == loadedCampaignId) return
+        if (campaignId == loadedCampaignId && _messages.value.isNotEmpty()) return
         loadedCampaignId = campaignId
-        val userId = authRepository.currentUserId ?: return
-        viewModelScope.launch {
-            messageRepository.getMessages(campaignId, userId)
+        messageJob?.cancel()
+        messageJob = viewModelScope.launch {
+            authRepository.observeAuthState()
+                .filterNotNull()
+                .flatMapLatest { user ->
+                    messageRepository.getMessages(campaignId, user.id)
+                }
                 .catch { /* silently ignore */ }
                 .collect { _messages.value = it }
         }
@@ -93,7 +99,8 @@ class ChatViewModel @Inject constructor(
             val result = messageRepository.sendImageMessage(campaignId, imageUri, userId, senderName)
             _isUploadingImage.value = false
             if (result.isFailure) {
-                _imageUploadError.value = "Не удалось отправить изображение. Проверьте Firebase Storage."
+                _imageUploadError.value = result.exceptionOrNull()?.localizedMessage
+                    ?: "Не удалось отправить изображение. Проверьте интернет-соединение."
             }
         }
     }

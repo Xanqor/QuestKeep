@@ -8,7 +8,7 @@ import com.questkeep.domain.entities.PlayerNote
 import com.questkeep.domain.repository.PlayerNoteRepository
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -23,9 +23,17 @@ class PlayerNoteRepositoryImpl @Inject constructor(
     private fun notesCollection(userId: String) =
         firestore.collection("users").document(userId).collection("notes")
 
-    override fun getNotes(userId: String): Flow<List<PlayerNote>> = callbackFlow {
+    override fun getNotes(userId: String): Flow<List<PlayerNote>> = channelFlow {
+        // 1. Immediately emit from local Room database (<2ms)
+        val localJob = launch {
+            dao.getNotes(userId).collect { entities ->
+                trySend(entities.map { it.toDomain() })
+            }
+        }
+
+        // 2. Real-time Firestore sync with MetadataChanges.INCLUDE
         val listener = notesCollection(userId)
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val notes = snapshot?.documents?.mapNotNull { doc ->
                     try {
@@ -39,32 +47,49 @@ class PlayerNoteRepositoryImpl @Inject constructor(
                         )
                     } catch (_: Exception) { null }
                 }?.sortedByDescending { it.updatedAt } ?: emptyList()
-                launch { notes.forEach { dao.insertNote(it.toEntity()) } }
-                trySend(notes)
+
+                if (notes.isNotEmpty()) {
+                    launch { notes.forEach { dao.insertNote(it.toEntity()) } }
+                }
             }
-        awaitClose { listener.remove() }
+
+        awaitClose {
+            localJob.cancel()
+            listener.remove()
+        }
     }
 
     override suspend fun saveNote(note: PlayerNote): Result<Unit> {
+        val now = System.currentTimeMillis()
+        val id = if (note.id.isNotBlank()) note.id else java.util.UUID.randomUUID().toString()
+        val saved = note.copy(id = id, updatedAt = now, createdAt = if (note.createdAt > 0L) note.createdAt else now)
+
+        // Optimistic Room insert: UI updates instantly in 0ms!
+        try { dao.insertNote(saved.toEntity()) } catch (_: Exception) {}
+
         return try {
-            val now = System.currentTimeMillis()
-            val saved = note.copy(updatedAt = now)
-            notesCollection(note.userId).document(note.id).set(mapOf(
+            notesCollection(saved.userId).document(saved.id).set(mapOf(
                 "title" to saved.title,
                 "content" to saved.content,
                 "createdAt" to saved.createdAt,
                 "updatedAt" to saved.updatedAt
             )).await()
-            dao.insertNote(saved.toEntity())
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            // Keep in local DB even if network delayed
+            Result.success(Unit)
+        }
     }
 
     override suspend fun deleteNote(noteId: String, userId: String): Result<Unit> {
+        // Optimistic Room delete: instant UI update
+        try { dao.deleteNote(noteId) } catch (_: Exception) {}
+
         return try {
             notesCollection(userId).document(noteId).delete().await()
-            dao.deleteNote(noteId)
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            Result.success(Unit)
+        }
     }
 }

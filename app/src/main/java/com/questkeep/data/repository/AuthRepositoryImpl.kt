@@ -37,18 +37,30 @@ class AuthRepositoryImpl @Inject constructor(
             firestoreListener = null
 
             if (firebaseUser != null) {
+                // Emit cached Auth user immediately so UI stays authenticated
+                trySend(User(
+                    id          = firebaseUser.uid,
+                    email       = firebaseUser.email ?: "",
+                    nickname    = firebaseUser.displayName?.ifBlank { "Player" } ?: "Player",
+                    avatarEmoji = "🧙",
+                    avatarUrl   = firebaseUser.photoUrl?.toString()
+                ))
+
                 // Listen to user document for real-time profile changes
                 firestoreListener = firestore
                     .collection(Constants.COLLECTION_USERS)
                     .document(firebaseUser.uid)
                     .addSnapshotListener { doc, error ->
-                        if (error != null || doc == null) { trySend(null); return@addSnapshotListener }
+                        if (error != null || doc == null || !doc.exists()) {
+                            // Do not emit null - keep user authenticated
+                            return@addSnapshotListener
+                        }
                         trySend(User(
                             id          = firebaseUser.uid,
                             email       = doc.getString("email") ?: firebaseUser.email ?: "",
                             nickname    = doc.getString("nickname") ?: firebaseUser.displayName ?: "Player",
                             avatarEmoji = doc.getString("avatarEmoji") ?: "🧙",
-                            avatarUrl   = doc.getString("avatarUrl")
+                            avatarUrl   = doc.getString("avatarUrl") ?: firebaseUser.photoUrl?.toString()
                         ))
                     }
             } else {
@@ -67,6 +79,7 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val uid = result.user?.uid ?: return Result.failure(Exception("Auth failed"))
+            com.questkeep.utils.QuestKeepFirebaseMessagingService.syncCurrentToken()
             Result.success(fetchUser(uid))
         } catch (e: Exception) { Result.failure(e) }
     }
@@ -80,6 +93,7 @@ class AuthRepositoryImpl @Inject constructor(
                 "email" to email, "nickname" to nickname,
                 "avatarEmoji" to "🧙", "createdAt" to user.createdAt
             )).await()
+            com.questkeep.utils.QuestKeepFirebaseMessagingService.syncCurrentToken()
             Result.success(user)
         } catch (e: Exception) { Result.failure(e) }
     }
@@ -90,16 +104,25 @@ class AuthRepositoryImpl @Inject constructor(
             val result = auth.signInWithCredential(credential).await()
             val firebaseUser = result.user ?: return Result.failure(Exception("Google sign-in failed"))
             val uid = firebaseUser.uid
-            val docRef = firestore.collection(Constants.COLLECTION_USERS).document(uid)
-            val doc = docRef.get().await()
-            if (!doc.exists()) {
-                docRef.set(mapOf(
-                    "email" to (firebaseUser.email ?: ""),
-                    "nickname" to (firebaseUser.displayName ?: "Player"),
-                    "avatarEmoji" to "🧙",
-                    "createdAt" to System.currentTimeMillis()
-                )).await()
+            try {
+                val docRef = firestore.collection(Constants.COLLECTION_USERS).document(uid)
+                val doc = docRef.get().await()
+                val photoUrl = firebaseUser.photoUrl?.toString()
+                if (!doc.exists()) {
+                    docRef.set(mapOf(
+                        "email" to (firebaseUser.email ?: ""),
+                        "nickname" to (firebaseUser.displayName?.ifBlank { "Player" } ?: "Player"),
+                        "avatarEmoji" to "🧙",
+                        "avatarUrl" to photoUrl,
+                        "createdAt" to System.currentTimeMillis()
+                    )).await()
+                } else if (!photoUrl.isNullOrBlank() && doc.getString("avatarUrl").isNullOrBlank()) {
+                    docRef.set(mapOf("avatarUrl" to photoUrl), com.google.firebase.firestore.SetOptions.merge()).await()
+                }
+            } catch (e: Exception) {
+                // If firestore fails temporarily, continue with auth User
             }
+            com.questkeep.utils.QuestKeepFirebaseMessagingService.syncCurrentToken()
             Result.success(fetchUser(uid))
         } catch (e: Exception) { Result.failure(e) }
     }
@@ -108,7 +131,7 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val uid = currentUserId ?: return Result.failure(Exception("Not logged in"))
             firestore.collection(Constants.COLLECTION_USERS).document(uid)
-                .update(mapOf("nickname" to nickname.trim(), "avatarEmoji" to avatarEmoji))
+                .set(mapOf("nickname" to nickname.trim(), "avatarEmoji" to avatarEmoji), com.google.firebase.firestore.SetOptions.merge())
                 .await()
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
@@ -118,7 +141,7 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val uid = currentUserId ?: return Result.failure(Exception("Not logged in"))
             firestore.collection(Constants.COLLECTION_USERS).document(uid)
-                .update(mapOf("avatarUrl" to url))
+                .set(mapOf("avatarUrl" to url), com.google.firebase.firestore.SetOptions.merge())
                 .await()
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
@@ -135,13 +158,34 @@ class AuthRepositoryImpl @Inject constructor(
         try { fetchUser(userId) } catch (e: Exception) { null }
 
     private suspend fun fetchUser(uid: String): User {
-        val doc = firestore.collection(Constants.COLLECTION_USERS).document(uid).get().await()
-        return User(
-            id          = uid,
-            email       = doc.getString("email") ?: "",
-            nickname    = doc.getString("nickname") ?: "Player",
-            avatarEmoji = doc.getString("avatarEmoji") ?: "🧙",
-            avatarUrl   = doc.getString("avatarUrl")
-        )
+        val fbUser = auth.currentUser
+        return try {
+            val doc = firestore.collection(Constants.COLLECTION_USERS).document(uid).get().await()
+            if (doc != null && doc.exists()) {
+                User(
+                    id          = uid,
+                    email       = doc.getString("email") ?: fbUser?.email ?: "",
+                    nickname    = doc.getString("nickname") ?: fbUser?.displayName?.ifBlank { "Player" } ?: "Player",
+                    avatarEmoji = doc.getString("avatarEmoji") ?: "🧙",
+                    avatarUrl   = doc.getString("avatarUrl") ?: fbUser?.photoUrl?.toString()
+                )
+            } else {
+                User(
+                    id          = uid,
+                    email       = fbUser?.email ?: "",
+                    nickname    = fbUser?.displayName?.ifBlank { "Player" } ?: "Player",
+                    avatarEmoji = "🧙",
+                    avatarUrl   = fbUser?.photoUrl?.toString()
+                )
+            }
+        } catch (e: Exception) {
+            User(
+                id          = uid,
+                email       = fbUser?.email ?: "",
+                nickname    = fbUser?.displayName?.ifBlank { "Player" } ?: "Player",
+                avatarEmoji = "🧙",
+                avatarUrl   = fbUser?.photoUrl?.toString()
+            )
+        }
     }
 }

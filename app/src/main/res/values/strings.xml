@@ -33,12 +33,19 @@
 
     <!-- Character Sheet -->
     <string name="main_stats">Основные характеристики</string>
-    <string name="stat_wellbeing">Самочувствие</string>
+    <string name="stat_constitution">Телосложение</string>
     <string name="stat_movement">Движение</string>
-    <string name="stat_combat">Сражение</string>
-    <string name="stat_thinking">Мышление</string>
-    <string name="stat_attention">Внимание</string>
-    <string name="stat_communication">Общение</string>
+    <string name="stat_perception">Внимательность</string>
+    <string name="stat_intelligence">Интеллект</string>
+    <string name="stat_influence">Влияние</string>
+    <string name="stat_willpower">Воля</string>
+    <string name="stat_armor_durability">Прочность</string>
+    <string name="stat_armor_block">Блок брони</string>
+    <string name="stat_wellbeing">Телосложение</string>
+    <string name="stat_combat">Воля</string>
+    <string name="stat_thinking">Интеллект</string>
+    <string name="stat_attention">Внимательность</string>
+    <string name="stat_communication">Влияние</string>
     <string name="magic_resources">Магические ресурсы</string>
     <string name="inspiration">Вдохновение</string>
     <string name="dmg">Урон</string>

@@ -12,17 +12,18 @@ data class Character(
     val currentHp: Int = 10,
     val maxHp: Int = 10,
 
-    // Armor — works like HP (current durability / max durability)
+    // Armor: Durability (current / max) & Flat Damage Reduction (Block)
     val armor: Int = 0,
     val maxArmor: Int = 0,
+    val armorBlock: Int = 0,
 
     // 6 main stats (custom system)
-    val wellbeing: Int = 0,     // Самочувствие
+    val constitution: Int = 0,  // Телосложение
     val movement: Int = 0,      // Движение
-    val combat: Int = 0,        // Сражение
-    val thinking: Int = 0,      // Мышление
-    val attention: Int = 0,     // Внимание
-    val communication: Int = 0, // Общение
+    val perception: Int = 0,    // Внимательность
+    val intelligence: Int = 0,  // Интеллект
+    val influence: Int = 0,     // Влияние
+    val willpower: Int = 0,     // Воля
 
     // Combat parameters
     val damage: Int = 0,
@@ -51,4 +52,11 @@ data class Character(
     val crowns: Int = 0,
 
     val updatedAt: Long = System.currentTimeMillis()
-)
+) {
+    // Backwards compatibility getters
+    val wellbeing: Int get() = constitution
+    val combat: Int get() = willpower
+    val thinking: Int get() = intelligence
+    val attention: Int get() = perception
+    val communication: Int get() = influence
+}

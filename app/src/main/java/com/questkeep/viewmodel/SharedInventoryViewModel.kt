@@ -30,12 +30,29 @@ class SharedInventoryViewModel @Inject constructor(
 
     val currentUserId: String? get() = authRepository.currentUserId
 
+    private var itemsJob: kotlinx.coroutines.Job? = null
+    private var crownsJob: kotlinx.coroutines.Job? = null
+
     fun load(campaignId: String) {
-        viewModelScope.launch {
+        itemsJob?.cancel()
+        crownsJob?.cancel()
+        itemsJob = viewModelScope.launch {
             repo.getItems(campaignId).catch { }.collect { _items.value = it }
         }
-        viewModelScope.launch {
+        crownsJob = viewModelScope.launch {
             repo.getBankCrowns(campaignId).catch { }.collect { _bankCrowns.value = it }
+        }
+    }
+
+    private fun formatError(t: Throwable): String {
+        val msg = t.message ?: ""
+        return if (msg.contains("PERMISSION_DENIED", ignoreCase = true) ||
+            msg.contains("insufficient permissions", ignoreCase = true) ||
+            msg.contains("Missing or insufficient permissions", ignoreCase = true)
+        ) {
+            "Действие отклонено: только Гейм-мастер может распределять казну"
+        } else {
+            msg.ifBlank { "Произошла ошибка при выполнении операции" }
         }
     }
 
@@ -46,14 +63,14 @@ class SharedInventoryViewModel @Inject constructor(
             repo.depositItem(SharedInventoryItem(
                 campaignId = campaignId, name = name.trim(),
                 description = description.trim(), quantity = quantity, depositedBy = uid
-            )).onFailure { _error.value = it.message }
+            )).onFailure { _error.value = formatError(it) }
         }
     }
 
     fun withdrawItem(item: SharedInventoryItem) {
         viewModelScope.launch {
             repo.withdrawItem(item.id, item.campaignId)
-                .onFailure { _error.value = it.message }
+                .onFailure { _error.value = formatError(it) }
         }
     }
 
@@ -71,7 +88,7 @@ class SharedInventoryViewModel @Inject constructor(
                 )
             )
             repo.withdrawItem(item.id, item.campaignId)
-                .onFailure { _error.value = it.message }
+                .onFailure { _error.value = formatError(it) }
         }
     }
 
@@ -80,7 +97,7 @@ class SharedInventoryViewModel @Inject constructor(
         if (amount <= 0) return
         viewModelScope.launch {
             repo.depositCrowns(campaignId, uid, amount)
-                .onFailure { _error.value = it.message }
+                .onFailure { _error.value = formatError(it) }
         }
     }
 
@@ -89,7 +106,7 @@ class SharedInventoryViewModel @Inject constructor(
         if (amount <= 0) return
         viewModelScope.launch {
             repo.withdrawCrowns(campaignId, uid, amount)
-                .onFailure { _error.value = it.message }
+                .onFailure { _error.value = formatError(it) }
         }
     }
 

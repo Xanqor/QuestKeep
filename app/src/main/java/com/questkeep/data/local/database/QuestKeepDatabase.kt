@@ -18,7 +18,7 @@ import com.questkeep.data.local.entity.*
         PlayerNoteEntity::class,
         PlayerNpcEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class QuestKeepDatabase : RoomDatabase() {

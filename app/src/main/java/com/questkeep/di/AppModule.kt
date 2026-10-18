@@ -77,12 +77,30 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+    fun provideFirestore(): FirebaseFirestore {
+        val firestore = FirebaseFirestore.getInstance()
+        try {
+            val settings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+                .setLocalCacheSettings(com.google.firebase.firestore.PersistentCacheSettings.newBuilder().build())
+                .build()
+            firestore.firestoreSettings = settings
+        } catch (_: Exception) {}
+        return firestore
+    }
 
     @Provides
     @Singleton
-    fun provideImgbbRetrofit(): Retrofit = Retrofit.Builder()
+    fun provideOkHttpClient(): okhttp3.OkHttpClient = okhttp3.OkHttpClient.Builder()
+        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideImgbbRetrofit(client: okhttp3.OkHttpClient): Retrofit = Retrofit.Builder()
         .baseUrl(Constants.IMGBB_BASE_URL)
+        .client(client)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
@@ -90,4 +108,14 @@ object AppModule {
     @Singleton
     fun provideImgbbApiService(retrofit: Retrofit): ImgbbApiService =
         retrofit.create(ImgbbApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideImgurApiService(client: okhttp3.OkHttpClient): com.questkeep.data.remote.ImgurApiService =
+        Retrofit.Builder()
+            .baseUrl(Constants.IMGUR_BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(com.questkeep.data.remote.ImgurApiService::class.java)
 }

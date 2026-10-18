@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "36273882941",
+    "firebase_url": "https://questkeep-4400c-default-rtdb.europe-west1.firebasedatabase.app",
     "project_id": "questkeep-4400c",
     "storage_bucket": "questkeep-4400c.firebasestorage.app"
   },
@@ -13,6 +14,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "36273882941-sa4fb5rsso1gu79bbt0l0kptdr61mt0p.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.questkeep",
+            "certificate_hash": "499656e219c84f5b980ebf875f61570e5e1342c5"
+          }
+        },
         {
           "client_id": "36273882941-8bajttlaroumtfv6lfjoftaq8sp64ad7.apps.googleusercontent.com",
           "client_type": 3

@@ -33,12 +33,19 @@
 
     <!-- Character Sheet -->
     <string name="main_stats">Main Stats</string>
-    <string name="stat_wellbeing">Wellbeing</string>
+    <string name="stat_constitution">Constitution</string>
     <string name="stat_movement">Movement</string>
-    <string name="stat_combat">Combat</string>
-    <string name="stat_thinking">Thinking</string>
-    <string name="stat_attention">Attention</string>
-    <string name="stat_communication">Comm.</string>
+    <string name="stat_perception">Perception</string>
+    <string name="stat_intelligence">Intelligence</string>
+    <string name="stat_influence">Influence</string>
+    <string name="stat_willpower">Willpower</string>
+    <string name="stat_armor_durability">Durability</string>
+    <string name="stat_armor_block">Armor Block</string>
+    <string name="stat_wellbeing">Constitution</string>
+    <string name="stat_combat">Willpower</string>
+    <string name="stat_thinking">Intelligence</string>
+    <string name="stat_attention">Perception</string>
+    <string name="stat_communication">Influence</string>
     <string name="magic_resources">Magic Resources</string>
     <string name="inspiration">Inspiration</string>
     <string name="dmg">DMG</string>

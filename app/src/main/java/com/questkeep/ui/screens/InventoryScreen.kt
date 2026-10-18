@@ -1,5 +1,6 @@
 package com.questkeep.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,7 +27,7 @@ import com.questkeep.viewmodel.InventoryViewModel
 
 /**
  * Inventory + Wallet screen for the current player.
- * Loads the player's own character automatically via AuthRepository.
+ * Fully themed according to the active realm (Falloran, Nirventhal, Tsingate, Xanteya).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +36,7 @@ fun InventoryScreen(
     onBack: () -> Unit,
     viewModel: InventoryViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     val items by viewModel.items.collectAsState()
     val character by viewModel.character.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -45,24 +47,26 @@ fun InventoryScreen(
     }
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = t.colors.bg,
         topBar = {
             TopAppBar(
-                title = { Text("Инвентарь", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text("Инвентарь", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = t.colors.text)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = t.colors.panel)
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = PrimaryPurple
+                containerColor = t.colors.accent,
+                contentColor = t.colors.bg,
+                shape = RoundedCornerShape(t.corner)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Добавить предмет", tint = OnPrimary)
+                Icon(Icons.Filled.Add, contentDescription = "Добавить предмет")
             }
         }
     ) { padding ->
@@ -72,7 +76,7 @@ fun InventoryScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
+            contentPadding = PaddingValues(top = 12.dp, bottom = 100.dp)
         ) {
             item {
                 WalletCard(
@@ -84,7 +88,8 @@ fun InventoryScreen(
             item {
                 Text(
                     "Предметы (${items.size})",
-                    color = TextSecondary,
+                    color = t.colors.muted,
+                    fontFamily = t.display,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(top = 8.dp)
                 )
@@ -98,7 +103,8 @@ fun InventoryScreen(
                     ) {
                         Text(
                             "Инвентарь пуст.\nНажмите + чтобы добавить предмет",
-                            color = TextDisabled,
+                            color = t.colors.muted,
+                            fontFamily = t.body,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center
                         )
@@ -115,8 +121,6 @@ fun InventoryScreen(
                     )
                 }
             }
-
-            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
     }
 
@@ -144,10 +148,12 @@ fun InventoryScreen(
 
 @Composable
 internal fun WalletCard(crowns: Int, onEditClick: () -> Unit) {
+    val t = LocalXanteya.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = DarkCard,
+        shape = RoundedCornerShape(t.corner),
+        color = t.colors.panel,
+        border = BorderStroke(1.dp, t.colors.line),
         onClick = onEditClick
     ) {
         Row(
@@ -159,18 +165,19 @@ internal fun WalletCard(crowns: Int, onEditClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("\uD83D\uDCB0", fontSize = 28.sp) // 💰
+                Text("💰", fontSize = 28.sp)
                 Column {
-                    Text("Кошелёк", color = TextSecondary, style = MaterialTheme.typography.labelSmall)
+                    Text("Кошелёк", color = t.colors.muted, fontFamily = t.body, style = MaterialTheme.typography.labelSmall)
                     Text(
                         "$crowns Крон",
-                        color = SecondaryGoldLight,
+                        color = t.colors.accent,
+                        fontFamily = t.display,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-            Text("›", color = TextSecondary, fontSize = 20.sp)
+            Text("›", color = t.colors.muted, fontSize = 20.sp)
         }
     }
 }
@@ -183,13 +190,15 @@ internal fun InventoryItemRow(
     onDelete: () -> Unit,
     onSendToBank: ((Int) -> Unit)? = null
 ) {
+    val t = LocalXanteya.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showSendToBankPicker by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
-        color = DarkCard
+        shape = RoundedCornerShape(t.corner),
+        color = t.colors.panel,
+        border = BorderStroke(1.dp, t.colors.line)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -197,36 +206,56 @@ internal fun InventoryItemRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(item.name, color = TextPrimary, fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    item.name,
+                    color = t.colors.text,
+                    fontFamily = t.display,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 if (item.description.isNotBlank()) {
-                    Text(item.description, color = TextSecondary,
-                        style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                    Text(
+                        item.description,
+                        color = t.colors.muted,
+                        fontFamily = t.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2
+                    )
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
-                    Text("\u2212", color = TextSecondary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("−", color = t.colors.muted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(
                     "${item.quantity}",
-                    color = TextPrimary, fontWeight = FontWeight.Bold,
+                    color = t.colors.text,
+                    fontFamily = t.display,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.widthIn(min = 24.dp),
                     textAlign = TextAlign.Center
                 )
                 IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
-                    Text("+", color = PrimaryPurpleLight, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("+", color = t.colors.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
             if (onSendToBank != null) {
                 IconButton(onClick = { showSendToBankPicker = true }, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Filled.Upload, contentDescription = "Сдать в банк",
-                        tint = SecondaryGold, modifier = Modifier.size(18.dp))
+                    Icon(
+                        Icons.Filled.Upload,
+                        contentDescription = "Сдать в банк",
+                        tint = t.colors.accent,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
             IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Filled.Delete, contentDescription = "Удалить",
-                    tint = AccentRed, modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Удалить",
+                    tint = t.colors.hot,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }
@@ -234,18 +263,20 @@ internal fun InventoryItemRow(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = DarkCard,
-            title = { Text("Удалить предмет?", color = TextPrimary) },
-            text = { Text("«${item.name}» будет удалён из инвентаря.", color = TextSecondary) },
+            containerColor = t.colors.panel,
+            shape = RoundedCornerShape(t.corner),
+            title = { Text("Удалить предмет?", color = t.colors.text, fontFamily = t.display) },
+            text = { Text("«${item.name}» будет удалён из инвентаря.", color = t.colors.muted, fontFamily = t.body) },
             confirmButton = {
                 Button(
                     onClick = { onDelete(); showDeleteConfirm = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
-                ) { Text("Удалить") }
+                    colors = ButtonDefaults.buttonColors(containerColor = t.colors.hot, contentColor = t.colors.bg),
+                    shape = RoundedCornerShape(t.corner)
+                ) { Text("Удалить", fontFamily = t.display) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Отмена", color = TextSecondary)
+                    Text("Отмена", color = t.colors.muted, fontFamily = t.body)
                 }
             }
         )
@@ -269,30 +300,37 @@ internal fun AddInventoryItemDialog(
     onDismiss: () -> Unit,
     onConfirm: (name: String, description: String, quantity: Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var quantityText by remember { mutableStateOf("1") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Добавить предмет", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text("Добавить предмет", color = t.colors.text, fontFamily = t.display) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Название") }, modifier = Modifier.fillMaxWidth(),
-                    singleLine = true, colors = inventoryFieldColors()
+                    label = { Text("Название", color = t.colors.muted, fontFamily = t.body) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = inventoryFieldColors()
                 )
                 OutlinedTextField(
                     value = description, onValueChange = { description = it },
-                    label = { Text("Описание") }, modifier = Modifier.fillMaxWidth(),
-                    maxLines = 3, colors = inventoryFieldColors()
+                    label = { Text("Описание", color = t.colors.muted, fontFamily = t.body) },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                    colors = inventoryFieldColors()
                 )
                 OutlinedTextField(
                     value = quantityText,
-                    onValueChange = { if (it.all { c -> c.isDigit() }) quantityText = it },
-                    label = { Text("Количество") }, modifier = Modifier.fillMaxWidth(),
+                    onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 4) quantityText = it },
+                    label = { Text("Количество", color = t.colors.muted, fontFamily = t.body) },
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = inventoryFieldColors()
@@ -306,11 +344,12 @@ internal fun AddInventoryItemDialog(
                     onConfirm(name, description, qty)
                 },
                 enabled = name.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text("Добавить") }
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg),
+                shape = RoundedCornerShape(t.corner)
+            ) { Text("Добавить", fontFamily = t.display) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
@@ -321,17 +360,19 @@ internal fun EditCrownsDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     var crownsText by remember { mutableStateOf(currentCrowns.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("\uD83D\uDCB0 Кошелёк", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text("💰 Кошелёк", color = t.colors.text, fontFamily = t.display) },
         text = {
             OutlinedTextField(
                 value = crownsText,
                 onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 7) crownsText = it },
-                label = { Text("Количество крон") },
+                label = { Text("Количество крон", color = t.colors.muted, fontFamily = t.body) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -340,12 +381,13 @@ internal fun EditCrownsDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(crownsText.toIntOrNull() ?: currentCrowns) },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text("Сохранить") }
+                onClick = { onConfirm(crownsText.toIntOrNull()?.coerceAtLeast(0) ?: currentCrowns) },
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg),
+                shape = RoundedCornerShape(t.corner)
+            ) { Text("Сохранить", fontFamily = t.display) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
@@ -357,17 +399,20 @@ internal fun SendToBankDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     var selected by remember { mutableStateOf(maxQuantity) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Сдать в банк", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text("Сдать в банк", color = t.colors.text, fontFamily = t.display) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "«$itemName» — выберите количество для передачи:",
-                    color = TextSecondary,
+                    color = t.colors.muted,
+                    fontFamily = t.body,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Row(
@@ -379,11 +424,12 @@ internal fun SendToBankDialog(
                         onClick = { if (selected > 1) selected-- },
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Text("−", color = TextSecondary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text("−", color = t.colors.muted, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     }
                     Text(
                         "$selected / $maxQuantity",
-                        color = TextPrimary,
+                        color = t.colors.text,
+                        fontFamily = t.display,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.widthIn(min = 72.dp),
@@ -393,7 +439,7 @@ internal fun SendToBankDialog(
                         onClick = { if (selected < maxQuantity) selected++ },
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Text("+", color = PrimaryPurpleLight, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text("+", color = t.colors.accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (maxQuantity > 1) {
@@ -401,8 +447,12 @@ internal fun SendToBankDialog(
                         onClick = { selected = maxQuantity },
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
-                        Text("Всё ($maxQuantity)", color = SecondaryGoldLight,
-                            style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "Всё ($maxQuantity)",
+                            color = t.colors.accent,
+                            fontFamily = t.display,
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
             }
@@ -410,21 +460,26 @@ internal fun SendToBankDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(selected) },
-                colors = ButtonDefaults.buttonColors(containerColor = SecondaryGold)
-            ) { Text("Сдать", color = OnPrimary) }
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg),
+                shape = RoundedCornerShape(t.corner)
+            ) { Text("Сдать", fontFamily = t.display) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
 
 @Composable
-internal fun inventoryFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = PrimaryPurple,
-    unfocusedBorderColor = DarkSurfaceVariant,
-    focusedTextColor = TextPrimary,
-    unfocusedTextColor = TextPrimary,
-    focusedLabelColor = PrimaryPurpleLight,
-    unfocusedLabelColor = TextSecondary
-)
+internal fun inventoryFieldColors(): TextFieldColors {
+    val t = LocalXanteya.current
+    return OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = t.colors.accent,
+        unfocusedBorderColor = t.colors.line,
+        focusedTextColor = t.colors.text,
+        unfocusedTextColor = t.colors.text,
+        focusedLabelColor = t.colors.accent,
+        unfocusedLabelColor = t.colors.muted,
+        cursorColor = t.colors.accent
+    )
+}

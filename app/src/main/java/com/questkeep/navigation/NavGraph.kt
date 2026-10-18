@@ -24,13 +24,17 @@ fun RootNavGraph(
     LaunchedEffect(authState) {
         when (authState) {
             is AuthState.Authenticated -> {
-                navController.navigate(NavRoutes.MAIN) {
-                    popUpTo(NavRoutes.LOGIN) { inclusive = true }
+                if (navController.currentDestination?.route != NavRoutes.MAIN) {
+                    navController.navigate(NavRoutes.MAIN) {
+                        popUpTo(NavRoutes.LOGIN) { inclusive = true }
+                    }
                 }
             }
             is AuthState.Unauthenticated -> {
-                navController.navigate(NavRoutes.LOGIN) {
-                    popUpTo(NavRoutes.MAIN) { inclusive = true }
+                if (navController.currentDestination?.route != NavRoutes.LOGIN) {
+                    navController.navigate(NavRoutes.LOGIN) {
+                        popUpTo(NavRoutes.MAIN) { inclusive = true }
+                    }
                 }
             }
             else -> {}

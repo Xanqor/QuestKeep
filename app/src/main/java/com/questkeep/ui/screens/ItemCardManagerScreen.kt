@@ -1,5 +1,8 @@
 package com.questkeep.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -9,8 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Delete
@@ -34,10 +35,6 @@ import com.questkeep.domain.entities.ItemRarity
 import com.questkeep.ui.theme.*
 import com.questkeep.viewmodel.ItemCardViewModel
 
-/**
- * GM screen for managing item card templates.
- * GM can create item cards and give them to specific player characters.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemCardManagerScreen(
@@ -45,6 +42,7 @@ fun ItemCardManagerScreen(
     onBack: () -> Unit,
     itemCardViewModel: ItemCardViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     val itemCards by itemCardViewModel.itemCards.collectAsState()
     val saveSuccess by itemCardViewModel.saveSuccess.collectAsState()
     val characters by itemCardViewModel.allCharacters.collectAsState()
@@ -81,32 +79,34 @@ fun ItemCardManagerScreen(
     }
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = t.colors.bg,
         topBar = {
             TopAppBar(
-                title = { Text("Карточки предметов", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text("Карточки предметов", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = t.colors.text)
                     }
                 },
                 actions = {
                     IconButton(onClick = { exportLauncher.launch("item_cards.json") }) {
-                        Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = TextPrimary)
+                        Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = t.colors.accent)
                     }
                     IconButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
-                        Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = TextPrimary)
+                        Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = t.colors.accent)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = t.colors.panel)
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showCreateDialog = true },
-                containerColor = PrimaryPurple
+                containerColor = t.colors.accent,
+                contentColor = t.colors.bg,
+                shape = RoundedCornerShape(t.corner)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Создать карточку", tint = OnPrimary)
+                Icon(Icons.Filled.Add, contentDescription = "Создать карточку")
             }
         }
     ) { padding ->
@@ -117,7 +117,8 @@ fun ItemCardManagerScreen(
             ) {
                 Text(
                     "Карточек предметов нет.\nСоздайте первую карточку!",
-                    color = TextDisabled,
+                    color = t.colors.muted,
+                    fontFamily = t.body,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
@@ -126,7 +127,7 @@ fun ItemCardManagerScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
+                contentPadding = PaddingValues(top = 12.dp, bottom = 100.dp)
             ) {
                 items(itemCards, key = { it.id }) { card ->
                     ItemCardRow(
@@ -136,7 +137,7 @@ fun ItemCardManagerScreen(
                         onEdit = { itemCardViewModel.startEditing(card) }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(80.dp)) }
+                item { Spacer(modifier = Modifier.height(100.dp)) }
             }
         }
     }
@@ -185,14 +186,16 @@ private fun ItemCardRow(
     onGive: () -> Unit,
     onEdit: () -> Unit = {}
 ) {
+    val t = LocalXanteya.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = DarkCard
+        shape = RoundedCornerShape(t.corner),
+        color = t.colors.panel,
+        border = BorderStroke(1.dp, t.colors.line)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -203,43 +206,52 @@ private fun ItemCardRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(card.name, color = TextPrimary, fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            card.name,
+                            color = t.colors.text,
+                            fontFamily = t.display,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                         RarityChip(card.rarity)
                     }
                     if (card.description.isNotBlank()) {
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(card.description, color = TextSecondary,
-                            style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                        Text(
+                            card.description,
+                            color = t.colors.muted,
+                            fontFamily = t.body,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 3
+                        )
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedButton(
                     onClick = onGive,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryPurpleLight),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryPurple)
+                    shape = RoundedCornerShape(t.corner),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.accent),
+                    border = BorderStroke(1.dp, t.colors.accent)
                 ) {
-                    Icon(Icons.Filled.CardGiftcard, contentDescription = null,
-                        modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.CardGiftcard, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Выдать игроку", style = MaterialTheme.typography.labelMedium)
+                    Text("Выдать игроку", fontFamily = t.display, style = MaterialTheme.typography.labelMedium)
                 }
                 IconButton(onClick = onEdit, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Редактировать",
-                        tint = SecondaryGold, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Edit, contentDescription = "Редактировать", tint = t.colors.accent, modifier = Modifier.size(20.dp))
                 }
                 IconButton(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier.size(40.dp)
                 ) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Удалить",
-                        tint = AccentRed, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Delete, contentDescription = "Удалить", tint = t.colors.hot, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -248,18 +260,20 @@ private fun ItemCardRow(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = DarkCard,
-            title = { Text("Удалить карточку?", color = TextPrimary) },
-            text = { Text("«${card.name}» будет удалена из библиотеки.", color = TextSecondary) },
+            containerColor = t.colors.panel,
+            shape = RoundedCornerShape(t.corner),
+            title = { Text("Удалить карточку?", color = t.colors.text, fontFamily = t.display) },
+            text = { Text("«${card.name}» будет удалена из библиотеки.", color = t.colors.muted, fontFamily = t.body) },
             confirmButton = {
                 Button(
                     onClick = { onDelete(); showDeleteConfirm = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
-                ) { Text("Удалить") }
+                    colors = ButtonDefaults.buttonColors(containerColor = t.colors.hot, contentColor = t.colors.bg),
+                    shape = RoundedCornerShape(t.corner)
+                ) { Text("Удалить", fontFamily = t.display) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Отмена", color = TextSecondary)
+                    Text("Отмена", color = t.colors.muted, fontFamily = t.body)
                 }
             }
         )
@@ -277,12 +291,11 @@ private fun RarityChip(rarity: ItemRarity) {
     }
     Box(
         modifier = Modifier
-            .background(color.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
-            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
-        Text(rarity.labelRu, color = color, style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold)
+        Text(rarity.labelRu, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -292,6 +305,7 @@ private fun CreateItemCardDialog(
     onDismiss: () -> Unit,
     onConfirm: (name: String, description: String, rarity: ItemRarity) -> Unit
 ) {
+    val t = LocalXanteya.current
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedRarity by remember { mutableStateOf(ItemRarity.COMMON) }
@@ -299,43 +313,49 @@ private fun CreateItemCardDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Новая карточка предмета", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text("Новая карточка предмета", color = t.colors.text, fontFamily = t.display) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Название") }, modifier = Modifier.fillMaxWidth(),
-                    singleLine = true, colors = gmDialogFieldColors()
+                    label = { Text("Название", color = t.colors.muted, fontFamily = t.body) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = gmDialogFieldColors()
                 )
                 OutlinedTextField(
                     value = description, onValueChange = { description = it },
-                    label = { Text("Описание") }, modifier = Modifier.fillMaxWidth(),
-                    maxLines = 4, colors = gmDialogFieldColors()
+                    label = { Text("Описание", color = t.colors.muted, fontFamily = t.body) },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 4,
+                    colors = gmDialogFieldColors()
                 )
                 Box {
                     OutlinedButton(
                         onClick = { showRarityMenu = true },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceVariant)
+                        shape = RoundedCornerShape(t.corner),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.text),
+                        border = BorderStroke(1.dp, t.colors.line)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Редкость: ${selectedRarity.labelRu}", fontSize = 14.sp)
-                            Text("▾", color = TextSecondary)
+                            Text("Редкость: ${selectedRarity.labelRu}", fontSize = 14.sp, fontFamily = t.body)
+                            Text("▾", color = t.colors.muted)
                         }
                     }
                     DropdownMenu(
                         expanded = showRarityMenu,
                         onDismissRequest = { showRarityMenu = false },
-                        containerColor = DarkCard
+                        containerColor = t.colors.panel
                     ) {
                         ItemRarity.entries.forEach { rarity ->
                             DropdownMenuItem(
-                                text = { Text(rarity.labelRu, color = TextPrimary) },
+                                text = { Text(rarity.labelRu, color = t.colors.text, fontFamily = t.body) },
                                 onClick = { selectedRarity = rarity; showRarityMenu = false }
                             )
                         }
@@ -347,14 +367,15 @@ private fun CreateItemCardDialog(
             Button(
                 onClick = { onConfirm(name, description, selectedRarity) },
                 enabled = name.isNotBlank() && !isSaving,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
+                shape = RoundedCornerShape(t.corner),
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
             ) {
-                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = OnPrimary)
-                else Text("Создать")
+                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = t.colors.bg)
+                else Text("Создать", fontFamily = t.display)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
@@ -366,43 +387,45 @@ private fun GiveItemDialog(
     onDismiss: () -> Unit,
     onConfirm: (characterId: String, quantity: Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     var selectedCharacter by remember { mutableStateOf(characters.firstOrNull()) }
     var quantityText by remember { mutableStateOf("1") }
     var showCharMenu by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Выдать «${card.name}»", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text("Выдать «${card.name}»", color = t.colors.text, fontFamily = t.display) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (characters.isEmpty()) {
-                    Text("Нет персонажей в кампании", color = TextDisabled)
+                    Text("Нет персонажей в кампании", color = t.colors.muted, fontFamily = t.body)
                 } else {
-                    // Character picker
                     Box {
                         OutlinedButton(
                             onClick = { showCharMenu = true },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceVariant)
+                            shape = RoundedCornerShape(t.corner),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.text),
+                            border = BorderStroke(1.dp, t.colors.line)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(selectedCharacter?.name ?: "Выберите персонажа", fontSize = 14.sp)
-                                Text("▾", color = TextSecondary)
+                                Text(selectedCharacter?.name ?: "Выберите персонажа", fontSize = 14.sp, fontFamily = t.body)
+                                Text("▾", color = t.colors.muted)
                             }
                         }
                         DropdownMenu(
                             expanded = showCharMenu,
                             onDismissRequest = { showCharMenu = false },
-                            containerColor = DarkCard
+                            containerColor = t.colors.panel
                         ) {
                             characters.forEach { char ->
                                 DropdownMenuItem(
-                                    text = { Text("${char.name} (${char.className})", color = TextPrimary) },
+                                    text = { Text("${char.name} (${char.className})", color = t.colors.text, fontFamily = t.body) },
                                     onClick = { selectedCharacter = char; showCharMenu = false }
                                 )
                             }
@@ -411,7 +434,7 @@ private fun GiveItemDialog(
                     OutlinedTextField(
                         value = quantityText,
                         onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 3) quantityText = it },
-                        label = { Text("Количество") },
+                        label = { Text("Количество", color = t.colors.muted, fontFamily = t.body) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -425,15 +448,15 @@ private fun GiveItemDialog(
                 onClick = {
                     val char = selectedCharacter ?: return@Button
                     val qty = quantityText.toIntOrNull()?.coerceAtLeast(1) ?: 1
-                    // Use playerId (auth UID) as characterId — matches how inventory queries work
                     onConfirm(char.playerId, qty)
                 },
                 enabled = selectedCharacter != null,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text("Выдать") }
+                shape = RoundedCornerShape(t.corner),
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
+            ) { Text("Выдать", fontFamily = t.display) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
@@ -445,6 +468,7 @@ private fun EditItemCardDialog(
     onDismiss: () -> Unit,
     onConfirm: (name: String, description: String, rarity: ItemRarity) -> Unit
 ) {
+    val t = LocalXanteya.current
     var name by remember(card.id) { mutableStateOf(card.name) }
     var description by remember(card.id) { mutableStateOf(card.description) }
     var selectedRarity by remember(card.id) { mutableStateOf(card.rarity) }
@@ -452,36 +476,42 @@ private fun EditItemCardDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Редактировать карточку", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text("Редактировать карточку", color = t.colors.text, fontFamily = t.display) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Название") }, modifier = Modifier.fillMaxWidth(),
-                    singleLine = true, colors = gmDialogFieldColors()
+                    label = { Text("Название", color = t.colors.muted, fontFamily = t.body) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = gmDialogFieldColors()
                 )
                 OutlinedTextField(
                     value = description, onValueChange = { description = it },
-                    label = { Text("Описание") }, modifier = Modifier.fillMaxWidth(),
-                    maxLines = 4, colors = gmDialogFieldColors()
+                    label = { Text("Описание", color = t.colors.muted, fontFamily = t.body) },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 4,
+                    colors = gmDialogFieldColors()
                 )
                 Box {
                     OutlinedButton(
                         onClick = { showRarityMenu = true },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceVariant)
+                        shape = RoundedCornerShape(t.corner),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = t.colors.text),
+                        border = BorderStroke(1.dp, t.colors.line)
                     ) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Редкость: ${selectedRarity.labelRu}", fontSize = 14.sp)
-                            Text("▾", color = TextSecondary)
+                            Text("Редкость: ${selectedRarity.labelRu}", fontSize = 14.sp, fontFamily = t.body)
+                            Text("▾", color = t.colors.muted)
                         }
                     }
-                    DropdownMenu(expanded = showRarityMenu, onDismissRequest = { showRarityMenu = false }, containerColor = DarkCard) {
+                    DropdownMenu(expanded = showRarityMenu, onDismissRequest = { showRarityMenu = false }, containerColor = t.colors.panel) {
                         ItemRarity.entries.forEach { rarity ->
                             DropdownMenuItem(
-                                text = { Text(rarity.labelRu, color = TextPrimary) },
+                                text = { Text(rarity.labelRu, color = t.colors.text, fontFamily = t.body) },
                                 onClick = { selectedRarity = rarity; showRarityMenu = false }
                             )
                         }
@@ -493,24 +523,31 @@ private fun EditItemCardDialog(
             Button(
                 onClick = { onConfirm(name, description, selectedRarity) },
                 enabled = name.isNotBlank() && !isSaving,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
+                shape = RoundedCornerShape(t.corner),
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg)
             ) {
-                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = OnPrimary)
-                else Text("Сохранить")
+                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = t.colors.bg)
+                else Text("Сохранить", fontFamily = t.display)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
 
 @Composable
-private fun gmDialogFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = PrimaryPurple,
-    unfocusedBorderColor = DarkSurfaceVariant,
-    focusedTextColor = TextPrimary,
-    unfocusedTextColor = TextPrimary,
-    focusedLabelColor = PrimaryPurpleLight,
-    unfocusedLabelColor = TextSecondary
-)
+private fun gmDialogFieldColors(): TextFieldColors {
+    val t = LocalXanteya.current
+    return OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = t.colors.accent,
+        unfocusedBorderColor = t.colors.line,
+        focusedTextColor = t.colors.text,
+        unfocusedTextColor = t.colors.text,
+        focusedLabelColor = t.colors.accent,
+        unfocusedLabelColor = t.colors.muted,
+        cursorColor = t.colors.accent,
+        focusedContainerColor = t.colors.bg,
+        unfocusedContainerColor = t.colors.bg
+    )
+}

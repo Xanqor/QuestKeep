@@ -17,14 +17,26 @@ class QuestKeepFirebaseMessagingService : FirebaseMessagingService() {
         private const val CHANNEL_ID = "questkeep_notifications"
         private const val CHANNEL_NAME = "QuestKeep"
         private const val NOTIFICATION_ID = 1001
+
+        fun syncCurrentToken() {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token ->
+                    if (!token.isNullOrBlank()) {
+                        FirebaseFirestore.getInstance()
+                            .collection(Constants.COLLECTION_USERS)
+                            .document(uid)
+                            .update("fcmToken", token)
+                    }
+                }
+        }
     }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // Save FCM token to Firestore when it refreshes
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         FirebaseFirestore.getInstance()
-            .collection("users")
+            .collection(Constants.COLLECTION_USERS)
             .document(uid)
             .update("fcmToken", token)
     }

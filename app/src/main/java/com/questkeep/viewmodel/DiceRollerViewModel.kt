@@ -21,6 +21,30 @@ class DiceRollerViewModel @Inject constructor(
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
+    private val _selectedTab = MutableStateFlow(0) // 0: D&D, 1: Nexur
+    val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
+
+    // D&D state
+    private val _selectedDndDie = MutableStateFlow(20)
+    val selectedDndDie: StateFlow<Int> = _selectedDndDie.asStateFlow()
+
+    private val _dndCount = MutableStateFlow(1)
+    val dndCount: StateFlow<Int> = _dndCount.asStateFlow()
+
+    private val _dndModifier = MutableStateFlow(0)
+    val dndModifier: StateFlow<Int> = _dndModifier.asStateFlow()
+
+    private val _lastDndResult = MutableStateFlow<com.questkeep.utils.DndRollResult?>(null)
+    val lastDndResult: StateFlow<com.questkeep.utils.DndRollResult?> = _lastDndResult.asStateFlow()
+
+    // Nexur state
+    private val _nexurPoolSize = MutableStateFlow(4)
+    val nexurPoolSize: StateFlow<Int> = _nexurPoolSize.asStateFlow()
+
+    private val _lastNexurResult = MutableStateFlow<com.questkeep.utils.NexurRollResult?>(null)
+    val lastNexurResult: StateFlow<com.questkeep.utils.NexurRollResult?> = _lastNexurResult.asStateFlow()
+
+    // Legacy custom expression
     private val _expression = MutableStateFlow("")
     val expression: StateFlow<String> = _expression.asStateFlow()
 
@@ -36,6 +60,111 @@ class DiceRollerViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    fun setSelectedTab(tab: Int) {
+        _selectedTab.value = tab
+    }
+
+    // ── D&D functions ──────────────────────────────────────────────────────────
+    fun setDndDie(sides: Int) { _selectedDndDie.value = sides }
+    fun setDndCount(count: Int) { _dndCount.value = count.coerceIn(1, 30) }
+    fun changeDndCount(delta: Int) { setDndCount(_dndCount.value + delta) }
+    fun setDndModifier(mod: Int) { _dndModifier.value = mod.coerceIn(-99, 99) }
+    fun changeDndModifier(delta: Int) { setDndModifier(_dndModifier.value + delta) }
+
+    fun rollDnd(): com.questkeep.utils.DndRollResult {
+        val result = DiceParser.rollDnd(
+            sides = _selectedDndDie.value,
+            count = _dndCount.value,
+            modifier = _dndModifier.value
+        )
+        _lastDndResult.value = result
+        return result
+    }
+
+    fun rollDndAndPost(
+        campaignId: String?,
+        senderName: String,
+        isPublic: Boolean,
+        privateTargetId: String? = null
+    ) {
+        val result = rollDnd()
+        if (campaignId == null) return
+        val userId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            val modStr = when {
+                result.modifier > 0 -> " + ${result.modifier}"
+                result.modifier < 0 -> " - ${-result.modifier}"
+                else -> ""
+            }
+            val rollsStr = if (result.rolls.size > 1) " [${result.rolls.joinToString(", ")}]" else ""
+            val critStr = when {
+                result.isNat20 -> "  🔥 КРИТИЧЕСКИЙ УСПЕХ!"
+                result.isNat1 -> "  💀 КРИТИЧЕСКИЙ ПРОВАЛ!"
+                else -> ""
+            }
+            val content = "🎲 **D&D (${result.count}d${result.sides}$modStr)**$rollsStr → **${result.total}**$critStr"
+            messageRepository.sendMessage(
+                ChatMessage(
+                    senderId = userId,
+                    senderName = senderName,
+                    campaignId = campaignId,
+                    content = content,
+                    type = MessageType.DICE_ROLL,
+                    isPublic = isPublic,
+                    targetPlayerId = if (isPublic) null else privateTargetId
+                )
+            )
+        }
+    }
+
+    // ── Nexur functions ────────────────────────────────────────────────────────
+    fun setNexurPoolSize(size: Int) { _nexurPoolSize.value = size.coerceIn(1, 30) }
+    fun changeNexurPoolSize(delta: Int) { setNexurPoolSize(_nexurPoolSize.value + delta) }
+
+    fun rollNexur(): com.questkeep.utils.NexurRollResult {
+        val result = DiceParser.rollNexur(_nexurPoolSize.value)
+        _lastNexurResult.value = result
+        return result
+    }
+
+    fun rollNexurAndPost(
+        campaignId: String?,
+        senderName: String,
+        isPublic: Boolean,
+        privateTargetId: String? = null
+    ) {
+        val result = rollNexur()
+        if (campaignId == null) return
+        val userId = authRepository.currentUserId ?: return
+        viewModelScope.launch {
+            val icons = mapOf(1 to "⚀", 2 to "⚁", 3 to "⚂", 4 to "⚃", 5 to "⚄", 6 to "⚅")
+            val diceStr = result.dice.joinToString(" ") { die ->
+                val icon = icons[die.face] ?: "${die.face}"
+                val pts = when (die.successes) {
+                    2 -> "+2★"
+                    1 -> "+1"
+                    else -> "0"
+                }
+                "[$icon $pts]"
+            }
+            val triumphsNote = if (result.triumphsCount > 0) " (Триумфов: ${result.triumphsCount}🌟)" else ""
+            val content = "🎲 **Nexur Pool: ${result.poolSize}d6** → **${result.totalSuccesses} успехов**$triumphsNote\n$diceStr"
+
+            messageRepository.sendMessage(
+                ChatMessage(
+                    senderId = userId,
+                    senderName = senderName,
+                    campaignId = campaignId,
+                    content = content,
+                    type = MessageType.DICE_ROLL,
+                    isPublic = isPublic,
+                    targetPlayerId = if (isPublic) null else privateTargetId
+                )
+            )
+        }
+    }
+
+    // ── Legacy custom roll support ─────────────────────────────────────────────
     fun setExpression(expr: String) {
         _expression.value = expr
         _error.value = null
@@ -52,11 +181,6 @@ class DiceRollerViewModel @Inject constructor(
         return result
     }
 
-    /**
-     * Rolls and posts result to chat.
-     * @param privateTargetId the GM userId — set when isPublic=false so the GM can see
-     *        player's secret roll (stored as targetPlayerId in the message).
-     */
     fun rollAndPost(
         campaignId: String?,
         senderName: String,

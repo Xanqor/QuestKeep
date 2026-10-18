@@ -10,6 +10,9 @@ interface CharacterDao {
     @Query("SELECT * FROM characters WHERE id = :id")
     fun getCharacterById(id: String): Flow<CharacterEntity?>
 
+    @Query("SELECT * FROM characters WHERE id = :id LIMIT 1")
+    suspend fun findCharacterById(id: String): CharacterEntity?
+
     @Query("SELECT * FROM characters WHERE campaignId = :campaignId AND playerId = :playerId LIMIT 1")
     fun getCharacterForPlayer(campaignId: String, playerId: String): Flow<CharacterEntity?>
 

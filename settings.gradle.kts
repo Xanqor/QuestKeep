@@ -21,5 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "QuestKeep"
 include(":app")
-include(":app")
  

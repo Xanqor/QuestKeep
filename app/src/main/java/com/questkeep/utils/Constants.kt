@@ -9,9 +9,11 @@ object Constants {
     const val COLLECTION_INVENTORY = "inventory"
     const val COLLECTION_ITEM_CARDS = "item_cards"
 
-    // Imgbb
-    const val IMGBB_API_KEY = "3313f8ba8ea1748efbdbf21247c0d1f0"
+    // Imgbb & Imgur
     const val IMGBB_BASE_URL = "https://api.imgbb.com/"
+    const val IMGUR_BASE_URL = "https://api.imgur.com/"
+    const val DEFAULT_IMGUR_CLIENT_ID = "546c25a59c58ad7"
+    const val COLLECTION_INVITE_CODES = "invite_codes"
 
     // Validation
     const val MIN_PASSWORD_LENGTH = 8
@@ -29,4 +31,6 @@ object Constants {
     // Datastore
     const val DATASTORE_NAME = "questkeep_prefs"
     const val KEY_USER_ID = "user_id"
+    const val KEY_SELECTED_CAMPAIGN_ID = "selected_campaign_id"
+    const val KEY_SELECTED_THEME = "selected_theme"
 }

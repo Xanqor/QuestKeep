@@ -23,7 +23,7 @@ data class MessageEntity(
     fun toDomain() = ChatMessage(
         id = id, senderId = senderId, senderName = senderName,
         campaignId = campaignId, content = content,
-        type = MessageType.valueOf(type),
+        type = MessageType.entries.find { it.name == type } ?: MessageType.NORMAL,
         isPublic = isPublic, targetPlayerId = targetPlayerId,
         targetPlayerName = targetPlayerName,
         imageUrl = imageUrl, createdAt = createdAt

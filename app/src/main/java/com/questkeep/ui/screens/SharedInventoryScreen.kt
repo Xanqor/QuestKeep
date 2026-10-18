@@ -1,5 +1,6 @@
 package com.questkeep.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,7 +10,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,12 +31,12 @@ fun SharedInventoryScreen(
     onBack: () -> Unit,
     viewModel: SharedInventoryViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     LaunchedEffect(campaignId) { if (campaignId != null) viewModel.load(campaignId) }
 
     val items by viewModel.items.collectAsState()
     val bankCrowns by viewModel.bankCrowns.collectAsState()
     val error by viewModel.error.collectAsState()
-    val currentUserId = viewModel.currentUserId
 
     var showDepositItemDialog by remember { mutableStateOf(false) }
     var showDepositCrownsDialog by remember { mutableStateOf(false) }
@@ -45,21 +45,21 @@ fun SharedInventoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("🏦 Банк кампании", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text("🏦 Банк кампании", color = t.colors.text, fontFamily = t.display, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = t.colors.text)
                     }
                 },
                 actions = {
                     IconButton(onClick = { showDepositItemDialog = true }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Сдать предмет", tint = PrimaryPurpleLight)
+                        Icon(Icons.Filled.Add, contentDescription = "Сдать предмет", tint = t.colors.accent)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = t.colors.panel)
             )
         },
-        containerColor = DarkBackground
+        containerColor = t.colors.bg
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -67,7 +67,7 @@ fun SharedInventoryScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+            contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
         ) {
             // Crowns section
             item {
@@ -81,8 +81,9 @@ fun SharedInventoryScreen(
             // Items header
             item {
                 Text(
-                    "Предметы в банке",
-                    color = TextSecondary,
+                    "Предметы в банке (${items.size})",
+                    color = t.colors.muted,
+                    fontFamily = t.display,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(top = 8.dp)
                 )
@@ -94,7 +95,7 @@ fun SharedInventoryScreen(
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Банк пуст", color = TextDisabled, fontSize = 14.sp)
+                        Text("Банк пуст", color = t.colors.muted, fontFamily = t.body, fontSize = 14.sp)
                     }
                 }
             } else {
@@ -109,16 +110,21 @@ fun SharedInventoryScreen(
         }
     }
 
-    // Error snackbar
+    // Error alert dialog
     error?.let { msg ->
         AlertDialog(
             onDismissRequest = { viewModel.clearError() },
-            containerColor = DarkCard,
-            title = { Text("Ошибка", color = AccentRed) },
-            text = { Text(msg, color = TextPrimary) },
+            containerColor = t.colors.panel,
+            shape = RoundedCornerShape(t.corner),
+            title = { Text("Ошибка", color = t.colors.hot, fontFamily = t.display, fontWeight = FontWeight.Bold) },
+            text = { Text(msg, color = t.colors.text, fontFamily = t.body) },
             confirmButton = {
-                TextButton(onClick = { viewModel.clearError() }) {
-                    Text("OK", color = PrimaryPurpleLight)
+                Button(
+                    onClick = { viewModel.clearError() },
+                    colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg),
+                    shape = RoundedCornerShape(t.corner)
+                ) {
+                    Text("Понятно", fontFamily = t.display)
                 }
             }
         )
@@ -168,36 +174,71 @@ private fun CrownsCard(
     onDeposit: () -> Unit,
     onWithdraw: () -> Unit
 ) {
-    Surface(
+    val t = LocalXanteya.current
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = DarkCard
+        shape = RoundedCornerShape(t.corner),
+        colors = CardDefaults.cardColors(containerColor = t.colors.panel),
+        border = BorderStroke(1.dp, t.colors.accent.copy(alpha = 0.6f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("👑 Казна", color = SecondaryGold, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "$bankCrowns монет",
-                color = SecondaryGoldLight,
-                fontWeight = FontWeight.Bold,
-                fontSize = 28.sp
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("👑", fontSize = 20.sp)
+                    Text(
+                        "Общая казна кампании",
+                        color = t.colors.accent,
+                        fontFamily = t.display,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("🪙", fontSize = 32.sp)
+                Column {
+                    Text(
+                        "$bankCrowns",
+                        color = t.colors.text,
+                        fontFamily = t.display,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 32.sp
+                    )
+                    Text("золотых крон в хранилище", color = t.colors.muted, fontFamily = t.body, fontSize = 12.sp)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
                     onClick = onDeposit,
-                    modifier = Modifier.weight(1f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentGreen)
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RoundedCornerShape(t.corner),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = t.colors.accent,
+                        contentColor = t.colors.bg
+                    )
                 ) {
-                    Text("Сдать", color = AccentGreen, fontSize = 13.sp)
+                    Text("+ Пополнить", fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
                 OutlinedButton(
                     onClick = onWithdraw,
-                    modifier = Modifier.weight(1f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed)
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RoundedCornerShape(t.corner),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = t.colors.accent
+                    ),
+                    border = BorderStroke(1.dp, t.colors.line)
                 ) {
-                    Text("Взять", color = AccentRed, fontSize = 13.sp)
+                    Text("− Забрать", fontFamily = t.display, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
@@ -210,41 +251,66 @@ private fun SharedInventoryItemCard(
     canWithdraw: Boolean,
     onWithdraw: () -> Unit
 ) {
-    Surface(
+    val t = LocalXanteya.current
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = DarkCard
+        shape = RoundedCornerShape(t.corner),
+        colors = CardDefaults.cardColors(containerColor = t.colors.panel),
+        border = BorderStroke(1.dp, t.colors.line)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.name, color = TextPrimary, fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodyLarge)
-                    Spacer(Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        item.name,
+                        color = t.colors.text,
+                        fontFamily = t.display,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = DarkSurfaceVariant
+                        shape = RoundedCornerShape(t.corner / 2),
+                        color = t.colors.bg,
+                        border = BorderStroke(1.dp, t.colors.line)
                     ) {
                         Text(
-                            "x${item.quantity}",
-                            color = TextSecondary,
+                            "×${item.quantity}",
+                            color = t.colors.accent,
+                            fontFamily = t.display,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
                 }
                 if (item.description.isNotBlank()) {
-                    Text(item.description, color = TextSecondary,
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        item.description,
+                        color = t.colors.muted,
+                        fontFamily = t.body,
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 2.dp))
+                        lineHeight = 16.sp
+                    )
                 }
             }
             if (canWithdraw) {
-                IconButton(onClick = onWithdraw) {
-                    Icon(Icons.Filled.Download, contentDescription = "Забрать в инвентарь", tint = AccentGreen)
+                Spacer(Modifier.width(8.dp))
+                FilledTonalButton(
+                    onClick = onWithdraw,
+                    shape = RoundedCornerShape(t.corner),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = t.colors.accent.copy(alpha = 0.15f),
+                        contentColor = t.colors.accent
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Взять", fontFamily = t.display, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -256,48 +322,52 @@ private fun DepositItemDialog(
     onDismiss: () -> Unit,
     onConfirm: (name: String, description: String, quantity: Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var quantityText by remember { mutableStateOf("1") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Сдать предмет", color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text("Сдать предмет", color = t.colors.text, fontFamily = t.display) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Название") },
+                    label = { Text("Название", color = t.colors.muted, fontFamily = t.body) },
                     modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                        focusedBorderColor = PrimaryPurpleLight, unfocusedBorderColor = DarkSurfaceVariant,
-                        focusedLabelColor = PrimaryPurpleLight, unfocusedLabelColor = TextSecondary
+                        focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+                        focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+                        focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted
                     )
                 )
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Описание (необязательно)") },
+                    label = { Text("Описание (необязательно)", color = t.colors.muted, fontFamily = t.body) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                        focusedBorderColor = PrimaryPurpleLight, unfocusedBorderColor = DarkSurfaceVariant,
-                        focusedLabelColor = PrimaryPurpleLight, unfocusedLabelColor = TextSecondary
+                        focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+                        focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+                        focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted
                     )
                 )
                 OutlinedTextField(
                     value = quantityText,
-                    onValueChange = { quantityText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Количество") },
+                    onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 4) quantityText = it },
+                    label = { Text("Количество", color = t.colors.muted, fontFamily = t.body) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                        focusedBorderColor = PrimaryPurpleLight, unfocusedBorderColor = DarkSurfaceVariant,
-                        focusedLabelColor = PrimaryPurpleLight, unfocusedLabelColor = TextSecondary
+                        focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+                        focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+                        focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted
                     )
                 )
             }
@@ -308,11 +378,12 @@ private fun DepositItemDialog(
                     val qty = quantityText.toIntOrNull() ?: 1
                     if (name.isNotBlank() && qty > 0) onConfirm(name, description, qty)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text("Сдать") }
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg),
+                shape = RoundedCornerShape(t.corner)
+            ) { Text("Сдать", fontFamily = t.display) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }
@@ -324,23 +395,26 @@ private fun CrownsInputDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
+    val t = LocalXanteya.current
     var amountText by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text(title, color = TextPrimary) },
+        containerColor = t.colors.panel,
+        shape = RoundedCornerShape(t.corner),
+        title = { Text(title, color = t.colors.text, fontFamily = t.display) },
         text = {
             OutlinedTextField(
                 value = amountText,
-                onValueChange = { amountText = it.filter { c -> c.isDigit() } },
-                label = { Text("Количество монет") },
+                onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 7) amountText = it },
+                label = { Text("Количество монет", color = t.colors.muted, fontFamily = t.body) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                    focusedBorderColor = SecondaryGold, unfocusedBorderColor = DarkSurfaceVariant,
-                    focusedLabelColor = SecondaryGold, unfocusedLabelColor = TextSecondary
+                    focusedTextColor = t.colors.text, unfocusedTextColor = t.colors.text,
+                    focusedBorderColor = t.colors.accent, unfocusedBorderColor = t.colors.line,
+                    focusedLabelColor = t.colors.accent, unfocusedLabelColor = t.colors.muted
                 )
             )
         },
@@ -350,11 +424,12 @@ private fun CrownsInputDialog(
                     val amount = amountText.toIntOrNull() ?: 0
                     if (amount > 0) onConfirm(amount)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
-            ) { Text(confirmLabel) }
+                colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.bg),
+                shape = RoundedCornerShape(t.corner)
+            ) { Text(confirmLabel, fontFamily = t.display) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Отмена", color = t.colors.muted, fontFamily = t.body) }
         }
     )
 }

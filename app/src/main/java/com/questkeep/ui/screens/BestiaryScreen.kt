@@ -1,78 +1,36 @@
 package com.questkeep.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Upload
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.questkeep.domain.entities.NpcCard
-import com.questkeep.ui.theme.AccentRed
-import com.questkeep.ui.theme.DarkBackground
-import com.questkeep.ui.theme.DarkCard
-import com.questkeep.ui.theme.DarkSurface
-import com.questkeep.ui.theme.DarkSurfaceVariant
-import com.questkeep.ui.theme.OnPrimary
-import com.questkeep.ui.theme.PrimaryPurple
-import com.questkeep.ui.theme.SecondaryGold
-import com.questkeep.ui.theme.TextPrimary
-import com.questkeep.ui.theme.TextSecondary
+import com.questkeep.ui.theme.*
 import com.questkeep.viewmodel.BestiaryUiState
 import com.questkeep.viewmodel.BestiaryViewModel
 import kotlinx.coroutines.launch
@@ -84,6 +42,7 @@ fun BestiaryScreen(
     onBack: () -> Unit,
     viewModel: BestiaryViewModel = hiltViewModel()
 ) {
+    val t = LocalXanteya.current
     val uiState by viewModel.uiState.collectAsState()
     val editingNpc by viewModel.editingNpc.collectAsState()
     val deletingNpc by viewModel.deletingNpc.collectAsState()
@@ -125,13 +84,14 @@ fun BestiaryScreen(
     }
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = t.colors.bg,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = "Бестиарий",
-                        color = TextPrimary,
+                        color = t.colors.text,
+                        fontFamily = t.display,
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -140,26 +100,27 @@ fun BestiaryScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Назад",
-                            tint = TextPrimary
+                            tint = t.colors.text
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = { exportLauncher.launch("npcs.json") }) {
-                        Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = TextPrimary)
+                        Icon(Icons.Filled.Upload, contentDescription = "Экспорт", tint = t.colors.accent)
                     }
                     IconButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
-                        Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = TextPrimary)
+                        Icon(Icons.Filled.Download, contentDescription = "Импорт", tint = t.colors.accent)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkCard)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = t.colors.panel)
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.startCreating() },
-                containerColor = PrimaryPurple,
-                contentColor = OnPrimary
+                containerColor = t.colors.accent,
+                contentColor = t.colors.bg,
+                shape = RoundedCornerShape(t.corner)
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Добавить NPC")
             }
@@ -173,7 +134,7 @@ fun BestiaryScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = PrimaryPurple)
+                    CircularProgressIndicator(color = t.colors.accent)
                 }
             }
             is BestiaryUiState.Error -> {
@@ -183,23 +144,54 @@ fun BestiaryScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = state.message, color = AccentRed, fontSize = 16.sp)
+                    Text(text = state.message, color = t.colors.hot, fontSize = 16.sp, fontFamily = t.body)
                 }
             }
             is BestiaryUiState.Success -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(state.npcs) { npc ->
-                        NpcCardItem(
-                            npc = npc,
-                            onEdit = { viewModel.startEditing(npc) },
-                            onDelete = { viewModel.requestDelete(npc) }
-                        )
+                if (state.npcs.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("📜", fontSize = 48.sp)
+                            Text(
+                                "Бестиарий пуст",
+                                color = t.colors.text,
+                                fontFamily = t.display,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                            Text(
+                                "Нажмите «+» внизу, чтобы добавить первого NPC",
+                                color = t.colors.muted,
+                                fontFamily = t.body,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp, start = 16.dp, end = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.npcs, key = { it.id }) { npc ->
+                            NpcCardItem(
+                                npc = npc,
+                                onEdit = { viewModel.startEditing(npc) },
+                                onDelete = { viewModel.requestDelete(npc) }
+                            )
+                        }
                     }
                 }
             }
@@ -210,28 +202,31 @@ fun BestiaryScreen(
     if (deletingNpc != null) {
         AlertDialog(
             onDismissRequest = { viewModel.cancelDelete() },
-            containerColor = DarkCard,
+            containerColor = t.colors.panel,
+            shape = RoundedCornerShape(t.corner),
             title = {
                 Text(
                     text = "Удалить NPC?",
-                    color = TextPrimary,
+                    color = t.colors.text,
+                    fontFamily = t.display,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
                     text = "Вы уверены, что хотите удалить «${deletingNpc!!.name}»?",
-                    color = TextSecondary
+                    color = t.colors.muted,
+                    fontFamily = t.body
                 )
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.confirmDelete() }) {
-                    Text("Удалить", color = AccentRed)
+                    Text("Удалить", color = t.colors.hot, fontFamily = t.display)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.cancelDelete() }) {
-                    Text("Отмена", color = TextSecondary)
+                    Text("Отмена", color = t.colors.muted, fontFamily = t.body)
                 }
             }
         )
@@ -242,16 +237,18 @@ fun BestiaryScreen(
         ModalBottomSheet(
             onDismissRequest = { viewModel.cancelEdit() },
             sheetState = sheetState,
-            containerColor = DarkCard
+            containerColor = t.colors.panel
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(bottom = 32.dp)
             ) {
                 Text(
                     text = if (editingNpc!!.id.isEmpty()) "Создать NPC" else "Редактировать NPC",
-                    color = TextPrimary,
+                    color = t.colors.text,
+                    fontFamily = t.display,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -262,7 +259,7 @@ fun BestiaryScreen(
                 OutlinedTextField(
                     value = editorName,
                     onValueChange = { editorName = it },
-                    label = { Text("Имя NPC", color = TextSecondary) },
+                    label = { Text("Имя NPC", color = t.colors.muted, fontFamily = t.body) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = bestiaryTextFieldColors()
@@ -274,7 +271,7 @@ fun BestiaryScreen(
                 OutlinedTextField(
                     value = editorDescription,
                     onValueChange = { editorDescription = it },
-                    label = { Text("Описание", color = TextSecondary) },
+                    label = { Text("Описание", color = t.colors.muted, fontFamily = t.body) },
                     minLines = 3,
                     maxLines = 6,
                     modifier = Modifier.fillMaxWidth(),
@@ -292,7 +289,7 @@ fun BestiaryScreen(
                     OutlinedTextField(
                         value = editorHp,
                         onValueChange = { editorHp = it.filter { c -> c.isDigit() } },
-                        label = { Text("❤️ HP", color = TextSecondary) },
+                        label = { Text("❤️ HP", color = t.colors.muted, fontFamily = t.body) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
@@ -302,7 +299,7 @@ fun BestiaryScreen(
                     OutlinedTextField(
                         value = editorArmor,
                         onValueChange = { editorArmor = it.filter { c -> c.isDigit() } },
-                        label = { Text("🛡️ Броня", color = TextSecondary) },
+                        label = { Text("🛡️ Броня", color = t.colors.muted, fontFamily = t.body) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
@@ -312,7 +309,7 @@ fun BestiaryScreen(
                     OutlinedTextField(
                         value = editorDamage,
                         onValueChange = { editorDamage = it },
-                        label = { Text("⚔️ Урон", color = TextSecondary) },
+                        label = { Text("⚔️ Урон", color = t.colors.muted, fontFamily = t.body) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         colors = bestiaryTextFieldColors()
@@ -325,7 +322,7 @@ fun BestiaryScreen(
                 OutlinedTextField(
                     value = editorTags,
                     onValueChange = { editorTags = it },
-                    label = { Text("Теги (через запятую)", color = TextSecondary) },
+                    label = { Text("Теги (через запятую)", color = t.colors.muted, fontFamily = t.body) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = bestiaryTextFieldColors()
@@ -357,13 +354,13 @@ fun BestiaryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(t.corner),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryPurple,
-                        contentColor = OnPrimary
+                        containerColor = t.colors.accent,
+                        contentColor = t.colors.bg
                     )
                 ) {
-                    Text("Сохранить", fontWeight = FontWeight.SemiBold)
+                    Text("Сохранить", fontFamily = t.display, fontWeight = FontWeight.SemiBold)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -380,18 +377,19 @@ private fun NpcCardItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkCard)
-            .padding(14.dp)
+    val t = LocalXanteya.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(t.corner),
+        colors = CardDefaults.cardColors(containerColor = t.colors.panel),
+        border = BorderStroke(1.dp, t.colors.line)
     ) {
-        Column {
+        Column(modifier = Modifier.padding(16.dp)) {
             // NPC name
             Text(
                 text = npc.name,
-                color = TextPrimary,
+                color = t.colors.text,
+                fontFamily = t.display,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -401,7 +399,8 @@ private fun NpcCardItem(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = npc.description,
-                    color = TextSecondary,
+                    color = t.colors.muted,
+                    fontFamily = t.body,
                     fontSize = 13.sp,
                     maxLines = 2
                 )
@@ -411,10 +410,10 @@ private fun NpcCardItem(
 
             // Mini-stats row: HP / Armor / Damage
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("❤️ HP: ${npc.hp}", color = AccentRed, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text("🛡️ Броня: ${npc.armor}", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("❤️ HP: ${npc.hp}", color = t.colors.hot, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = t.body)
+                Text("🛡️ Броня: ${npc.armor}", color = t.colors.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = t.body)
                 if (npc.damage.isNotBlank()) {
-                    Text("⚔️ Урон: ${npc.damage}", color = SecondaryGold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("⚔️ Урон: ${npc.damage}", color = t.colors.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = t.body)
                 }
             }
 
@@ -425,11 +424,12 @@ private fun NpcCardItem(
                     npc.tags.forEach { tag ->
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(DarkSurfaceVariant)
+                                .clip(RoundedCornerShape(t.corner / 2))
+                                .background(t.colors.bg)
+                                .border(1.dp, t.colors.line, RoundedCornerShape(t.corner / 2))
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
-                            Text(text = tag, color = TextSecondary, fontSize = 11.sp)
+                            Text(text = tag, color = t.colors.muted, fontSize = 11.sp, fontFamily = t.body)
                         }
                     }
                 }
@@ -443,7 +443,7 @@ private fun NpcCardItem(
                     Icon(
                         imageVector = Icons.Filled.Edit,
                         contentDescription = "Редактировать",
-                        tint = SecondaryGold,
+                        tint = t.colors.accent,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -452,7 +452,7 @@ private fun NpcCardItem(
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "Удалить",
-                        tint = AccentRed,
+                        tint = t.colors.hot,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -463,14 +463,17 @@ private fun NpcCardItem(
 
 // Shared OutlinedTextField color scheme for Bestiary editor
 @Composable
-private fun bestiaryTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = TextPrimary,
-    unfocusedTextColor = TextPrimary,
-    focusedBorderColor = PrimaryPurple,
-    unfocusedBorderColor = DarkSurfaceVariant,
-    cursorColor = PrimaryPurple,
-    focusedLabelColor = PrimaryPurple,
-    unfocusedLabelColor = TextSecondary,
-    focusedContainerColor = DarkSurface,
-    unfocusedContainerColor = DarkSurface
-)
+private fun bestiaryTextFieldColors(): TextFieldColors {
+    val t = LocalXanteya.current
+    return OutlinedTextFieldDefaults.colors(
+        focusedTextColor = t.colors.text,
+        unfocusedTextColor = t.colors.text,
+        focusedBorderColor = t.colors.accent,
+        unfocusedBorderColor = t.colors.line,
+        cursorColor = t.colors.accent,
+        focusedLabelColor = t.colors.accent,
+        unfocusedLabelColor = t.colors.muted,
+        focusedContainerColor = t.colors.bg,
+        unfocusedContainerColor = t.colors.bg
+    )
+}

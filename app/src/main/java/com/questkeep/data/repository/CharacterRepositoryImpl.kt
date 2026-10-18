@@ -25,6 +25,12 @@ class CharacterRepositoryImpl @Inject constructor(
      *  Uses a single whereEqualTo to avoid requiring a Firestore composite index,
      *  then filters by playerId in-memory. */
     override fun getCharacter(campaignId: String, playerId: String): Flow<Character?> = callbackFlow {
+        val localJob = launch {
+            dao.getCharacterForPlayer(campaignId, playerId).collect { entity ->
+                trySend(entity?.toDomain())
+            }
+        }
+
         val listener = firestore
             .collection(Constants.COLLECTION_CHARACTERS)
             .whereEqualTo("campaignId", campaignId)
@@ -33,14 +39,24 @@ class CharacterRepositoryImpl @Inject constructor(
                 val character = snapshot?.documents
                     ?.mapNotNull { docToCharacter(it) }
                     ?.firstOrNull { it.playerId == playerId }
-                if (character != null) launch { dao.insertCharacter(character.toEntity()) }
-                trySend(character)
+                if (character != null) {
+                    launch { dao.insertCharacter(character.toEntity()) }
+                }
             }
-        awaitClose { listener.remove() }
+
+        awaitClose {
+            localJob.cancel()
+            listener.remove()
+        }
     }
 
-    /** Real-time listener — watches Firestore for all characters in a campaign (GM view). */
     override fun getCharactersForCampaign(campaignId: String): Flow<List<Character>> = callbackFlow {
+        val localJob = launch {
+            dao.getCharactersForCampaign(campaignId).collect { entities ->
+                trySend(entities.map { it.toDomain() })
+            }
+        }
+
         val listener = firestore
             .collection(Constants.COLLECTION_CHARACTERS)
             .whereEqualTo("campaignId", campaignId)
@@ -48,9 +64,12 @@ class CharacterRepositoryImpl @Inject constructor(
                 if (error != null) return@addSnapshotListener
                 val characters = snapshot?.documents?.mapNotNull { docToCharacter(it) } ?: emptyList()
                 launch { characters.forEach { dao.insertCharacter(it.toEntity()) } }
-                trySend(characters)
             }
-        awaitClose { listener.remove() }
+
+        awaitClose {
+            localJob.cancel()
+            listener.remove()
+        }
     }
 
     override suspend fun saveCharacter(character: Character): Result<Unit> {
@@ -81,6 +100,21 @@ class CharacterRepositoryImpl @Inject constructor(
 
     override suspend fun deleteCharacter(id: String): Result<Unit> {
         return try {
+            val localChar = dao.findCharacterById(id)
+            if (localChar != null) {
+                firestore.collection(Constants.COLLECTION_CHARACTERS)
+                    .document("${localChar.campaignId}_${localChar.id}")
+                    .delete()
+                    .await()
+            } else {
+                val snapshot = firestore.collection(Constants.COLLECTION_CHARACTERS)
+                    .whereEqualTo("id", id)
+                    .get()
+                    .await()
+                for (doc in snapshot.documents) {
+                    doc.reference.delete().await()
+                }
+            }
             dao.deleteCharacter(id)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -102,12 +136,13 @@ class CharacterRepositoryImpl @Inject constructor(
             maxHp         = (doc.getLong("maxHp") ?: 10L).toInt(),
             armor         = (doc.getLong("armor") ?: 0L).toInt(),
             maxArmor      = (doc.getLong("maxArmor") ?: 0L).toInt(),
-            wellbeing     = (doc.getLong("wellbeing") ?: 0L).toInt(),
+            armorBlock    = (doc.getLong("armorBlock") ?: 0L).toInt(),
+            constitution  = (doc.getLong("constitution") ?: doc.getLong("wellbeing") ?: 0L).toInt(),
             movement      = (doc.getLong("movement") ?: 0L).toInt(),
-            combat        = (doc.getLong("combat") ?: 0L).toInt(),
-            thinking      = (doc.getLong("thinking") ?: 0L).toInt(),
-            attention     = (doc.getLong("attention") ?: 0L).toInt(),
-            communication = (doc.getLong("communication") ?: 0L).toInt(),
+            perception    = (doc.getLong("perception") ?: doc.getLong("attention") ?: 0L).toInt(),
+            intelligence  = (doc.getLong("intelligence") ?: doc.getLong("thinking") ?: 0L).toInt(),
+            influence     = (doc.getLong("influence") ?: doc.getLong("communication") ?: 0L).toInt(),
+            willpower     = (doc.getLong("willpower") ?: doc.getLong("combat") ?: 0L).toInt(),
             damage        = (doc.getLong("damage") ?: 0L).toInt(),
             dodge         = (doc.getLong("dodge") ?: 0L).toInt(),
             initiative    = (doc.getLong("initiative") ?: 0L).toInt(),
@@ -137,12 +172,19 @@ class CharacterRepositoryImpl @Inject constructor(
         "maxHp"           to maxHp,
         "armor"           to armor,
         "maxArmor"        to maxArmor,
-        "wellbeing"       to wellbeing,
+        "armorBlock"      to armorBlock,
+        "constitution"    to constitution,
         "movement"        to movement,
-        "combat"          to combat,
-        "thinking"        to thinking,
-        "attention"       to attention,
-        "communication"   to communication,
+        "perception"      to perception,
+        "intelligence"    to intelligence,
+        "influence"       to influence,
+        "willpower"       to willpower,
+        // Legacy keys for backwards compatibility with existing clients
+        "wellbeing"       to constitution,
+        "combat"          to willpower,
+        "thinking"        to intelligence,
+        "attention"       to perception,
+        "communication"   to influence,
         "damage"          to damage,
         "dodge"           to dodge,
         "initiative"      to initiative,

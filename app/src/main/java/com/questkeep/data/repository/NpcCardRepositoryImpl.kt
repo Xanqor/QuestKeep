@@ -8,7 +8,8 @@ import com.questkeep.domain.repository.NpcCardRepository
 import com.questkeep.utils.Constants
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
@@ -25,31 +26,48 @@ class NpcCardRepositoryImpl @Inject constructor(
             .document(campaignId)
             .collection("npc_cards")
 
-    override fun getNpcs(campaignId: String): Flow<List<NpcCard>> = callbackFlow {
-        val listener = npcsCollection(campaignId)
-            .orderBy("createdAt")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) { return@addSnapshotListener }
-                val npcs = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        @Suppress("UNCHECKED_CAST")
-                        NpcCard(
-                            id = doc.id, campaignId = campaignId,
-                            name = doc.getString("name") ?: "",
-                            description = doc.getString("description") ?: "",
-                            hp = (doc.getLong("hp") ?: 0L).toInt(),
-                            armor = (doc.getLong("armor") ?: 0L).toInt(),
-                            damage = doc.getString("damage") ?: "",
-                            tags = (doc.get("tags") as? List<String>) ?: emptyList(),
-                            statsJson = doc.getString("statsJson") ?: "{}",
-                            createdAt = doc.getLong("createdAt") ?: 0L
-                        )
-                    } catch (e: Exception) { null }
-                } ?: emptyList()
-                trySend(npcs)
+    override fun getNpcs(campaignId: String): Flow<List<NpcCard>> =
+        kotlinx.coroutines.flow.channelFlow {
+            // 1. Immediately emit from local Room database so UI never hangs in loading
+            val localJob = launch {
+                dao.getNpcsForCampaign(campaignId).collect { entities ->
+                    trySend(entities.map { it.toDomain() })
+                }
             }
-        awaitClose { listener.remove() }
-    }
+
+            // 2. Real-time sync with Firestore (sort in memory to avoid missing index / field errors)
+            val listener = npcsCollection(campaignId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        return@addSnapshotListener
+                    }
+                    val npcs = snapshot?.documents?.mapNotNull { doc ->
+                        try {
+                            @Suppress("UNCHECKED_CAST")
+                            NpcCard(
+                                id = doc.id, campaignId = campaignId,
+                                name = doc.getString("name") ?: "",
+                                description = doc.getString("description") ?: "",
+                                hp = (doc.getLong("hp") ?: 0L).toInt(),
+                                armor = (doc.getLong("armor") ?: 0L).toInt(),
+                                damage = doc.getString("damage") ?: "",
+                                tags = (doc.get("tags") as? List<String>) ?: emptyList(),
+                                statsJson = doc.getString("statsJson") ?: "{}",
+                                createdAt = doc.getLong("createdAt") ?: 0L
+                            )
+                        } catch (e: Exception) { null }
+                    }?.sortedBy { it.createdAt } ?: emptyList()
+
+                    launch {
+                        npcs.forEach { dao.insertNpc(it.toEntity()) }
+                    }
+                }
+
+            awaitClose {
+                localJob.cancel()
+                listener.remove()
+            }
+        }
 
     override suspend fun saveNpc(npc: NpcCard): Result<NpcCard> {
         return try {

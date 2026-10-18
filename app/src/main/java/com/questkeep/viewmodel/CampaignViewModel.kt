@@ -35,11 +35,20 @@ class CampaignViewModel @Inject constructor(
 
     val currentUserId: String? get() = authRepository.currentUserId
 
-    init { loadCampaigns() }
+    private var campaignsJob: kotlinx.coroutines.Job? = null
 
-    private fun loadCampaigns() {
-        val userId = authRepository.currentUserId ?: return
+    init {
         viewModelScope.launch {
+            authRepository.observeAuthState().collect { user ->
+                if (user != null) loadCampaigns()
+            }
+        }
+    }
+
+    fun loadCampaigns() {
+        val userId = authRepository.currentUserId ?: return
+        campaignsJob?.cancel()
+        campaignsJob = viewModelScope.launch {
             campaignRepository.getCampaignsForUser(userId).collect { _campaigns.value = it }
         }
     }
@@ -65,19 +74,28 @@ class CampaignViewModel @Inject constructor(
     }
 
     fun joinCampaign(inviteCode: String) {
-        if (inviteCode.length != 6) {
-            viewModelScope.launch { _events.emit(CampaignUiEvent.Error("Код должен быть 6 символов")) }
+        val cleanCode = inviteCode.trim().uppercase()
+        if (cleanCode.length != 6) {
+            viewModelScope.launch { _events.emit(CampaignUiEvent.Error("Код должен состоять из 6 символов")) }
             return
         }
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             _isLoading.value = true
-            val result = campaignRepository.joinCampaign(inviteCode.uppercase(), userId)
-            _isLoading.value = false
-            result.fold(
-                onSuccess = { _events.emit(CampaignUiEvent.JoinSuccess(it.id)) },
-                onFailure = { _events.emit(CampaignUiEvent.Error(it.message ?: "Кампания не найдена")) }
-            )
+            try {
+                val result = campaignRepository.joinCampaign(cleanCode, userId)
+                result.fold(
+                    onSuccess = {
+                        loadCampaigns()
+                        _events.emit(CampaignUiEvent.JoinSuccess(it.id))
+                    },
+                    onFailure = { _events.emit(CampaignUiEvent.Error(it.message ?: "Кампания не найдена")) }
+                )
+            } catch (e: Exception) {
+                _events.emit(CampaignUiEvent.Error(e.localizedMessage ?: "Ошибка присоединения к кампании"))
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
